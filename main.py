@@ -1,5 +1,624 @@
+
+가능합니다. 그리고 생성형 AI를 이용한 오버샘플링도 구현 자체가 아주 어려운 것은 아닙니다. 다만 개인신용평가 연구에서는 “생성은 쉬운데, 합성 데이터가 실제 소수 클래스의 분포·상관관계·범주 제약을 제대로 보존했는지 검증하는 것”이 더 어렵습니다. 그래서 우선 Original → SMOTE → CTGAN까지 안정적으로 구현하고, 그 다음 Generative AI를 네 번째 오버샘플링 방법으로 추가하는 구조를 권합니다.
+
+요청하신 Streamlit 앱의 실행 가능한 초안을 만들어 두었습니다.
+
+전체 프로젝트
+
+개별 파일도 받을 수 있습니다.
+
+
+
+
+1. 현재 코드에 구현된 기능
+왼쪽 Sidebar는 다음 5개 메뉴로 구성했습니다.
+
+1. 데이터 업로드
+
+CSV
+
+XLSX
+
+XLS
+
+업로드 데이터 미리보기
+
+행/열 개수
+
+결측치 수
+
+현재 데이터 CSV 다운로드
+
+Streamlit은 rerun마다 변수가 초기화되는 구조이기 때문에 업로드 데이터, 전처리 데이터, Train/Test/Validation, 모델 결과 등은 st.session_state로 관리하도록 만들었습니다. Streamlit 공식 문서에서도 Session State를 rerun 간 변수 상태를 유지하는 방법으로 제공하고 있습니다. 
+
+2. 데이터 탐색
+
+데이터 기술통계
+
+변수명
+
+데이터 타입
+
+결측치 개수
+
+결측치 비율
+
+unique value 개수
+
+Histogram
+
+Box Plot
+
+Scatter Plot
+
+Bar Chart
+
+Line Chart
+
+X축/Y축 변수 선택
+
+Pearson/Spearman/Kendall 상관분석
+
+Correlation Heatmap
+
+시각화는 Plotly 기반이라 마우스로 확대하거나 값을 확인할 수 있게 했습니다.
+
+3. 데이터 전처리
+
+결측치는 사용자가 직접 방법을 선택할 수 있습니다.
+
+행 삭제
+
+열 삭제
+
+Mean
+
+Median
+
+Mode
+
+사용자 지정 값
+
+수치형 Median + 범주형 Mode 자동 처리
+
+이상치는 다음을 구현했습니다.
+
+IQR 기준 행 제거
+
+IQR Winsorizing/Capping
+
+Z-score 기준 제거
+
+처리할 변수 직접 선택
+
+IQR 배수/Z-score threshold 직접 설정
+
+인코딩은 다음을 넣었습니다.
+
+One-Hot Encoding
+
+Label/Ordinal Encoding
+
+인코딩할 변수 직접 선택
+
+Feature Selection은
+
+변수 직접 선택
+
+SelectKBest
+
+Mutual Information
+
+두 가지 방법을 넣었습니다.
+
+2. Data Partitioning은 연구에 맞게 구성했습니다
+여기가 특히 중요합니다.
+
+사용자가 직접
+
+Train / Validation / Test
+
+비율을 설정할 수 있습니다.
+
+기본값은
+
+Train 60% / Validation 20% / Test 20%
+
+입니다.
+
+그리고 stratify 옵션을 기본으로 활성화해서 건전/부실 비율이 각 데이터셋에서 가능한 한 유지되도록 했습니다.
+
+또한 Positive Class를 직접 지정할 수 있습니다.
+
+예를 들어:
+
+0 = 건전
+1 = 부실
+로 만들고 싶다면 Target의 부실에 해당하는 값을 Positive class로 지정하면 됩니다.
+
+이 기능이 중요한 이유는 Precision, Recall, F1-score가 무엇을 1로 간주하느냐에 따라 의미가 달라지기 때문입니다.
+
+3. 오버샘플링 구조
+코드는 다음 흐름으로 되어 있습니다.
+
+전체 데이터
+      │
+      ▼
+Train / Validation / Test
+      │
+      ├──────── Validation → 그대로 유지
+      │
+      ├──────── Test → 그대로 유지
+      │
+      ▼
+     Train
+      │
+      ├── No Oversampling
+      ├── SMOTE
+      └── CTGAN
+즉,
+
+Validation과 Test에는 SMOTE나 CTGAN이 절대 적용되지 않습니다.
+
+오직 Train set만 오버샘플링합니다.
+
+SMOTE는 imbalanced-learn의 공식 SMOTE.fit_resample() 구조를 사용했습니다. 
+
+사용자가 예를 들어 목표 비율을
+
+Minority / Majority = 1.0
+으로 설정하면
+
+Before
+
+건전 8,000
+부실 1,000
+
+       ↓ SMOTE
+
+After
+
+건전 8,000
+부실 8,000
+같은 구조가 됩니다.
+
+다만 실제 신용평가 데이터에 범주형 변수가 많다면 향후에는 SMOTENC도 옵션으로 추가하는 것을 추천합니다. imbalanced-learn에서는 수치형과 범주형 변수가 함께 있는 데이터를 위한 SMOTENC를 별도로 제공합니다. 
+
+4. CTGAN도 구현했습니다
+CTGAN은 SDV의 CTGANSynthesizer를 사용했습니다. 현재 SDV 공식 문서에서도 CTGAN은 GAN 기반 딥러닝을 사용하여 실제 테이블 데이터의 분포를 학습하고 합성 데이터를 만드는 synthesizer로 제공됩니다. 
+
+여기서는 일반적인 합성 데이터 생성이 아니라 오버샘플링이 목적이므로 조금 다르게 구성했습니다.
+
+예를 들어 Train이
+
+건전 : 8,000
+부실 : 1,000
+이라면 부실 데이터만 가져와 CTGAN을 학습합니다.
+
+부실 Train 1,000
+       │
+       ▼
+    CTGAN
+       │
+       ▼
+합성 부실 데이터 생성
+목표를 1:1로 지정했다면
+
+기존 부실 1,000
++
+CTGAN 부실 7,000
+=
+부실 8,000
+으로 만들어 Train에 합칩니다.
+
+Validation/Test는 그대로입니다.
+
+그리고 CTGAN이 0/1 dummy variable 등에 0.483, 0.928 같은 이상한 연속값을 생성하는 문제를 줄이기 위해, 이 코드에서는 원래 Train 데이터의 범위 및 discrete domain으로 값을 다시 보정하는 함수도 넣어두었습니다.
+
+5. 모델 학습
+요청하신 모델을 모두 넣었습니다.
+
+1. Logistic Regression
+2. Random Forest
+3. Decision Tree
+4. DNN
+5. Multilayer Perceptron
+여기서 말씀하신 Multiperceptron neural network는 일반적으로 Multilayer Perceptron, MLP라고 표현하면 됩니다.
+
+MLP는 scikit-learn의 MLPClassifier를 사용합니다. 현재 공식 scikit-learn에서도 다층 퍼셉트론 분류기로 제공되고 있습니다. 
+
+반면 DNN은 TensorFlow/Keras로 따로 구성했습니다.
+
+Input
+ ↓
+Dense 128 / ReLU
+ ↓
+Dropout
+ ↓
+Dense 64 / ReLU
+ ↓
+Dropout
+ ↓
+Dense 32 / ReLU
+ ↓
+Dense 1 / Sigmoid
+따라서 MLP와 DNN을 서로 다른 모델로 비교할 수 있습니다.
+
+Logistic Regression, MLP, DNN에는 StandardScaler가 적용되며 Scaler 역시 Train에만 fit하도록 작성했습니다.
+
+6. 결과 분석
+요청하신 지표가 전부 구현되어 있습니다.
+
+Accuracy
+Precision
+Recall
+F1-score
+ROC-AUC
+ROC-AUC는 scikit-learn의 공식 roc_auc_score, ROC curve는 roc_curve를 이용했습니다. 
+
+결과 페이지에서 모델별로
+
+Model	Accuracy	Precision	Recall	F1	ROC-AUC
+Logistic	...	...	...	...	...
+Random Forest	...	...	...	...	...
+Decision Tree	...	...	...	...	...
+DNN	...	...	...	...	...
+MLP	...	...	...	...	...
+형태로 비교하고,
+
+ROC Curve도 한 그래프 위에 모델별로 겹쳐서 비교하도록 만들었습니다.
+
+Validation 성능과 Test 성능도 따로 표시합니다.
+
+7. 생성형 AI 오버샘플링은 가능한가?
+가능합니다. 오히려 사용자의 연구 주제를 생각하면 연구적으로 상당히 재미있는 비교 대상이 될 수 있습니다.
+
+구조를 이렇게 확장하면 됩니다.
+
+                        ┌─ Original
+                        │
+Train Minority Data ────┼─ SMOTE
+                        │
+                        ├─ CTGAN
+                        │
+                        └─ Generative AI / LLM
+                                │
+                                ▼
+                         Synthetic Minority
+예를 들어 부실 고객의 실제 Train 데이터가 다음과 있다고 하겠습니다.
+
+age: 37
+income: 32000000
+loan_amount: 27000000
+dti: 0.48
+delinquency: 3
+credit_score: 545
+loan_status: 1
+LLM에 단순히
+
+"비슷한 데이터를 5,000개 만들어"
+
+라고 하면 안 됩니다.
+
+대신 실제 Train 데이터에서 계산한
+
+변수명
+데이터 타입
+Min
+Max
+Mean
+Median
+Standard deviation
+Quantile
+범주
+변수 간 조건
+과 소수 클래스 예제를 제공하고,
+
+JSON
+형태로 새로운 synthetic observation을 생성하게 하는 방식이 더 적절합니다.
+
+그다음 반드시
+
+LLM 생성
+  ↓
+Schema 검사
+  ↓
+Min/Max 검사
+  ↓
+Category 검사
+  ↓
+논리적 제약조건 검사
+  ↓
+Duplicate 제거
+  ↓
+분포 비교
+  ↓
+Train set에 추가
+과정을 거쳐야 합니다.
+
+중요한 차이
+SMOTE는 기본적으로 기존 Minority sample 사이를 보간해서 새로운 표본을 생성합니다. 공식 imbalanced-learn 설명에서도 SMOTE 계열의 새로운 표본은 이웃 표본을 이용한 interpolation 방식으로 생성됩니다. 
+
+반면 CTGAN은 Minority data 자체의 분포를 학습합니다.
+
+Generative AI는 한 단계 더 나아가
+
+데이터의 통계적 패턴
++
+변수 간 의미
++
+도메인 규칙
+을 프롬프트 또는 모델 context에 포함시켜 표본을 생성할 수 있다는 점에서 연구적으로 차별화할 수 있습니다.
+
+다만 외부 생성형 AI 서비스에 실제 개인신용정보 원문을 보내는 구조는 피하는 것이 좋고, 연구 목적이라면 비식별 데이터 또는 로컬 LLM 기반으로 설계하는 것이 더 적절합니다.
+
+8. 지금 연구에 가장 좋은 최종 구조
+이 Streamlit을 조금 더 확장한다면 저는 최종적으로 아래 구조를 추천합니다.
+
+[데이터 업로드]
+       ↓
+[데이터 탐색]
+       ↓
+[결측치 / 이상치]
+       ↓
+[Encoding]
+       ↓
+[Feature Selection]
+       ↓
+[Train / Validation / Test]
+       ↓
+       ├─────────────────────────────┐
+       │                             │
+     Train                     Validation / Test
+       │                             │
+ ┌─────┼──────┬──────┐              │
+ │     │      │      │              │
+Original SMOTE CTGAN GenAI           │
+ │     │      │      │              │
+ └─────┴──────┴──────┘              │
+       │                             │
+       ▼                             │
+Logistic / RF / DT / DNN / MLP      │
+       │                             │
+       └─────────────── 평가 ────────┘
+                        ↓
+             Accuracy
+             Precision
+             Recall
+             F1-score
+             ROC-AUC
+             ROC Curve
+특히 이렇게 만들면 단순한 개인신용평가 프로그램이 아니라, 나중에는 Original vs SMOTE vs CTGAN vs Generative AI synthetic data의 성능을 동일한 Validation/Test에서 비교하는 연구용 실험 플랫폼으로 바로 확장할 수 있습니다. 현재 만들어드린 코드는 그 확장을 고려해서 Train 오버샘플링과 Validation/Test 평가를 분리해 두었습니다.
+
+실행은 압축을 푼 뒤 터미널에서 다음 두 줄이면 됩니다.
+
+pip install -r requirements.txt
+streamlit run app.py
+ 
+
+
+
+
+
+생성형 ai로 오버샘플링 하려면 api가 필요하잖아. 자신의 api를 입력하게 하고 오버샘플링을 할 수 있는 기능을 추가할 수 있을까>
+
+네. 말씀하신 방식으로 사용자가 자신의 OpenAI API Key를 입력해서 생성형 AI 오버샘플링을 실행하는 기능을 기존 Streamlit 코드에 추가했습니다.
+
+OpenAI의 현재 Responses API는 JSON Schema 기반의 Structured Outputs를 지원하므로, 생성 결과가 신용데이터의 변수 구조를 따르도록 받을 수 있습니다. 
+
+추가된 흐름은 다음과 같습니다.
+
+Train set
+   ↓
+Minority class 추출
+   ↓
+Generative AI (OpenAI API) 선택
+   ↓
+사용자 API Key 입력
+   ↓
+모델명 입력
+   ↓
+목표 Minority : Majority 비율 설정
+   ↓
+Minority 데이터 통계정보 생성
+   ↓
+OpenAI API 호출
+   ↓
+Structured JSON 형태로 합성 데이터 생성
+   ↓
+범위 / 데이터 타입 / 이산값 검증
+   ↓
+Train set에만 추가
+   ↓
+모델 학습
+예를 들어 화면에서는 대략 다음 설정을 할 수 있습니다.
+
+오버샘플링 방법
+○ 사용 안 함
+○ SMOTE
+○ CTGAN
+● Generative AI (OpenAI API)
+
+OpenAI API Key
+[ ••••••••••••••••• ]
+
+OpenAI 모델명
+[ gpt-5.6 ]
+
+목표 Minority / Majority 비율
+[ 1.0 ]
+
+필요한 합성 데이터
+7,000 rows
+
+API 1회당 생성
+25 rows
+
+[ ] 실제 Minority 샘플 일부를 API에 포함
+[x] 원본과 동일한 합성행 제거
+
+[Generative AI 오버샘플링 실행]
+특히 개인정보 때문에 기본값은 실제 고객 행을 API로 보내지 않습니다. Minority Train set에서 min, max, mean, median, Q1, Q3, std, unique value 같은 통계정보를 만들어 API에 보내고, 이를 바탕으로 합성 데이터를 생성하게 했습니다. 실제 Minority 샘플을 같이 보내는 것은 사용자가 별도로 체크해야 활성화됩니다.
+
+또한 ID, name, phone, address, 주민, 이름, 고객번호처럼 식별정보일 가능성이 있는 변수는 API 전송 제외 후보로 자동 선택하도록 했습니다.
+
+한 가지 중요한 점은 API로 5,000~10,000개의 행을 생성하면 호출 횟수와 비용이 커질 수 있다는 것입니다. 그래서 코드에 한 번에 생성할 행 수, 전체 생성 행 수, 예상 호출 횟수를 표시하고 API 비용 확인 체크박스도 넣었습니다.
+
+업데이트한 전체 프로젝트는 여기서 받으면 됩니다.
+
+
+개별 코드는 여기입니다.
+
+
+
+설치는 다시 아래처럼 하면 됩니다.
+
+pip install -r requirements.txt
+streamlit run app.py
+이번 버전부터 requirements.txt에 openai도 추가되어 있습니다.
+
+그리고 연구 관점에서는 이 기능을 넣으면 최종적으로 Original / SMOTE / CTGAN / Generative AI 네 가지 데이터 생성 방법을 동일한 Train·Validation·Test 구조에서 비교할 수 있게 됩니다. 이 형태가 개인신용평가에서 생성형 AI 기반 오버샘플링의 효과를 비교하는 실험 구조로 쓰기 좋습니다.
+
+
+
+
+
+붙여넣은 마크다운(1)(1).md
+파일
+이렇게 에러가 떠
+
+네. 로그를 확인해보니 원인을 찾았습니다. 작성하신 코드 자체의 Plotly 오류가 핵심이 아니라, Streamlit Cloud의 Python 버전 문제입니다.
+
+로그상 현재 앱은 Python 3.14.7에서 실행되고 있습니다. 
+
+ 그런데 requirements.txt에 있는 tensorflow>=2.16을 Python 3.14에서 설치할 수 없어 의존성 설치가 중단되었습니다. 
+
+ 그 결과 뒤의 패키지 설치까지 정상 완료되지 않아 최종적으로 plotly도 없다는 오류가 발생했습니다. 
+
+
+TensorFlow 공식 문서상 현재 사전 빌드 패키지는 Python 3.10~3.13을 지원하므로, 이 프로젝트는 Python 3.12로 배포하는 것을 권장합니다. 
+
+수정 방법
+현재 Streamlit 앱은 이미 Python 3.14로 생성되었기 때문에 단순 Reboot만 해서는 Python 버전이 바뀌지 않습니다. Streamlit 공식 문서에서도 배포 후 Python 버전을 변경하려면 기존 앱을 삭제하고 다시 배포해야 한다고 안내합니다. 
+
+다음 순서대로 하시면 됩니다.
+
+GitHub의 기존 main.py를 제가 아래에 수정해서 드린 main.py로 교체
+
+기존 requirements.txt도 아래 수정본으로 교체
+
+GitHub에 Commit
+
+Streamlit Community Cloud에서 현재 앱 creditrating1 삭제
+
+다시 Create app
+
+Repository와 main.py 선택
+
+Advanced settings 클릭
+
+Python version → 3.12 선택
+
+Deploy
+
+Streamlit Community Cloud는 배포 시 Advanced settings에서 Python 버전을 선택할 수 있습니다. 
+
+제가 오류를 수정한 버전
+이번에는 기존 기능뿐 아니라 앞서 말씀하신 사용자 OpenAI API Key 입력 → 생성형 AI 오버샘플링 기능도 실제 코드에 포함해서 다시 만들었습니다.
+
+
+GitHub에 바로 넣을 핵심 파일은 다음 두 개입니다.
+
+
+
+배포 설명도 같이 넣었습니다.
+
+
+이번 requirements.txt는 다음처럼 수정되어 있습니다.
+
+streamlit==1.61.1
+pandas>=2.2,<3.1
+numpy>=2.0,<2.4
+plotly>=6.0,<7
+scikit-learn>=1.7,<2
+imbalanced-learn>=0.14,<0.15
+sdv>=1.38,<2
+tensorflow==2.21.0
+openai>=2.0,<3
+pydantic>=2.0,<3
+openpyxl>=3.1,<4
+xlrd>=2.0,<3
+특히 기존의
+
+tensorflow>=2.16
+을
+
+tensorflow==2.21.0
+으로 변경했고 Python 3.12 배포를 기준으로 맞췄습니다. TensorFlow 2.21은 공식적으로 Python 3.12용 Linux wheel을 제공합니다. 
+
+생성형 AI 오버샘플링도 들어갔습니다
+이번 main.py에는 오버샘플링 선택지가 이렇게 나옵니다.
+
+오버샘플링 방법
+
+○ 사용 안 함
+○ SMOTE
+○ CTGAN
+○ Generative AI (OpenAI API)
+Generative AI (OpenAI API)를 선택하면 다음 화면이 나타납니다.
+
+OpenAI API Key
+[••••••••••••••••••]
+
+OpenAI 모델명
+[gpt-5.6]
+
+목표 Minority / Majority 비율
+[0.50 ~ 1.00]
+
+필요한 AI 합성 행 수
+7,000
+
+API 1회당 생성 행 수
+20
+
+API 전송에서 제외할 변수
+[ID, name, ...]
+
+□ Minority 실제 샘플 일부도 API에 제공
+☑ 원본 Train과 동일한 합성행 제거
+
+□ API 사용량에 따라 비용이 발생할 수 있음을 확인했습니다.
+
+[Generative AI 오버샘플링 실행]
+OpenAI API의 Structured Outputs를 사용하도록 만들었기 때문에 합성 결과를 자유로운 텍스트가 아니라 원 데이터의 변수명과 일치하는 JSON 테이블 형태로 받습니다. OpenAI 공식 문서에서도 Responses API에서 JSON Schema를 지정하는 Structured Outputs 방식을 지원합니다. 
+
+그리고 중요한 부분은 기본 설정에서는 실제 신용 고객의 개별 행을 API로 보내지 않고,
+
+min
+max
+mean
+std
+Q1
+median
+Q3
+허용 값
+같은 Minority Train 데이터의 통계 요약만 API로 보내도록 했다는 점입니다.
+
+현재 오류를 해결하려면 우선 GitHub에서 main.py, requirements.txt 두 파일을 교체한 다음 Streamlit 앱을 Python 3.12로 재배포하시면 됩니다. 이 단계가 가장 중요합니다.
+
+
+
+
+
+라이브러리
+/
+main.py
+
+
 import io
 import hashlib
+import json
 import warnings
 
 import numpy as np
@@ -138,6 +757,163 @@ def snap_synthetic_to_training_domain(synthetic: pd.DataFrame, real: pd.DataFram
         result[col] = syn_col
 
     return result
+
+
+def build_minority_profile(df: pd.DataFrame, included_cols):
+    """API에 원본 행 대신 전달할 Minority class 통계 프로파일."""
+    profile = {}
+    for col in included_cols:
+        s = pd.to_numeric(df[col], errors="coerce").dropna()
+        if s.empty:
+            continue
+        info = {
+            "dtype": str(df[col].dtype),
+            "min": float(s.min()),
+            "max": float(s.max()),
+            "mean": float(s.mean()),
+            "std": float(s.std()) if len(s) > 1 else 0.0,
+            "q1": float(s.quantile(0.25)),
+            "median": float(s.median()),
+            "q3": float(s.quantile(0.75)),
+        }
+        uniques = np.sort(s.unique())
+        if len(uniques) <= 20:
+            info["allowed_values"] = [float(v) for v in uniques]
+        profile[col] = info
+    return profile
+
+
+def generate_openai_synthetic_rows(
+    api_key,
+    model_name,
+    real_minority,
+    n_rows,
+    batch_size=20,
+    excluded_cols=None,
+    include_samples=False,
+    sample_rows=5,
+):
+    """
+    OpenAI Structured Outputs를 이용해 Minority class의 합성 feature 행을 생성.
+    기본값은 실제 고객 행을 보내지 않고 통계 프로파일만 전송한다.
+    excluded_cols는 API에 전송하지 않고 Minority 실제값에서 로컬 bootstrap한다.
+    """
+    from openai import OpenAI
+
+    excluded_cols = excluded_cols or []
+    all_cols = real_minority.columns.tolist()
+    ai_cols = [c for c in all_cols if c not in excluded_cols]
+
+    if not ai_cols:
+        raise ValueError("API에 전달할 변수가 하나 이상 필요합니다.")
+
+    profile = build_minority_profile(real_minority, ai_cols)
+
+    row_properties = {c: {"type": "number"} for c in ai_cols}
+    schema = {
+        "type": "object",
+        "properties": {
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": row_properties,
+                    "required": ai_cols,
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["rows"],
+        "additionalProperties": False,
+    }
+
+    prompt_payload = {
+        "task": "Generate realistic synthetic minority-class tabular credit-risk feature rows.",
+        "rules": [
+            "Generate new synthetic observations, not explanations.",
+            "Respect each feature's observed range and allowed_values when provided.",
+            "Preserve plausible dependencies and correlations among variables.",
+            "Do not copy an input row verbatim.",
+            "Return exactly the requested number of rows.",
+        ],
+        "minority_feature_profile": profile,
+    }
+
+    if include_samples:
+        safe_sample = real_minority[ai_cols].sample(
+            n=min(sample_rows, len(real_minority)),
+            random_state=RANDOM_STATE,
+        )
+        prompt_payload["example_minority_rows"] = safe_sample.to_dict(orient="records")
+
+    client = OpenAI(api_key=api_key)
+    generated_batches = []
+    remaining = int(n_rows)
+    batch_no = 0
+
+    while remaining > 0:
+        batch_no += 1
+        current_n = min(int(batch_size), remaining)
+        request_payload = dict(prompt_payload)
+        request_payload["number_of_rows"] = current_n
+
+        response = client.responses.create(
+            model=model_name,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You generate synthetic tabular data for an academic credit-risk "
+                        "classification experiment. Follow the supplied statistical constraints "
+                        "and return only data conforming to the schema."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(request_payload, ensure_ascii=False),
+                },
+            ],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "synthetic_credit_rows",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+        )
+
+        parsed = json.loads(response.output_text)
+        rows = parsed.get("rows", [])
+        if not rows:
+            raise ValueError(f"API batch {batch_no}에서 합성 행을 받지 못했습니다.")
+
+        batch_df = pd.DataFrame(rows)
+        for c in ai_cols:
+            if c not in batch_df.columns:
+                raise ValueError(f"API 응답에 변수 '{c}'가 없습니다.")
+            batch_df[c] = pd.to_numeric(batch_df[c], errors="coerce")
+
+        batch_df = batch_df[ai_cols].dropna().copy()
+        if batch_df.empty:
+            raise ValueError(f"API batch {batch_no}의 데이터가 수치형 검증을 통과하지 못했습니다.")
+
+        # API에 보내지 않은 변수는 외부 전송 없이 Minority 실제 분포에서 bootstrap
+        for c in excluded_cols:
+            rng = np.random.default_rng(RANDOM_STATE + batch_no)
+            source = real_minority[c].dropna().to_numpy()
+            if len(source) == 0:
+                batch_df[c] = 0.0
+            else:
+                batch_df[c] = rng.choice(source, size=len(batch_df), replace=True)
+
+        batch_df = batch_df.reindex(columns=all_cols)
+        batch_df = snap_synthetic_to_training_domain(batch_df, real_minority)
+        generated_batches.append(batch_df)
+        remaining -= min(len(batch_df), current_n)
+
+    synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows))
+    return synthetic
 
 
 def parse_hidden_layers(text):
@@ -1152,7 +1928,7 @@ elif page == "3. 데이터 전처리":
 
                     oversampling_method = st.selectbox(
                         "오버샘플링 방법",
-                        ["사용 안 함", "SMOTE", "CTGAN"],
+                        ["사용 안 함", "SMOTE", "CTGAN", "Generative AI (OpenAI API)"],
                     )
 
                     if oversampling_method == "사용 안 함":
@@ -1349,6 +2125,186 @@ elif page == "3. 데이터 전처리":
                                     )
                                 except Exception as e:
                                     st.error(f"CTGAN 적용 중 오류: {e}")
+
+                    elif oversampling_method == "Generative AI (OpenAI API)":
+                        y_train = splits["y_train"]
+                        counts = y_train.value_counts()
+                        minority_label = counts.idxmin()
+                        current_ratio = counts.min() / counts.max()
+
+                        st.info(
+                            "API Key는 password 입력창으로 받고 코드/CSV에 저장하지 않습니다. "
+                            "기본 설정에서는 실제 고객 행 대신 Minority class의 통계 요약만 API로 전송합니다."
+                        )
+
+                        api_key = st.text_input(
+                            "OpenAI API Key",
+                            type="password",
+                            key="openai_api_key_input",
+                            help="이 값은 현재 Streamlit 세션에서 API 호출에만 사용합니다.",
+                        )
+                        model_name = st.text_input(
+                            "OpenAI 모델명",
+                            value="gpt-5.6",
+                            key="openai_model_name",
+                        )
+
+                        target_ratio = st.slider(
+                            "목표 Minority / Majority 비율",
+                            0.10,
+                            1.00,
+                            max(0.50, round(float(current_ratio), 2)),
+                            0.05,
+                            key="genai_ratio",
+                        )
+
+                        majority_n = int(counts.max())
+                        minority_n = int(counts.min())
+                        target_minority_n = int(np.ceil(majority_n * target_ratio))
+                        n_to_generate = max(0, target_minority_n - minority_n)
+
+                        st.metric("필요한 AI 합성 행 수", f"{n_to_generate:,}")
+
+                        batch_size = st.slider(
+                            "API 1회당 생성 행 수",
+                            5,
+                            50,
+                            20,
+                            5,
+                            key="genai_batch_size",
+                        )
+                        if n_to_generate > 0:
+                            estimated_calls = int(np.ceil(n_to_generate / batch_size))
+                            st.caption(f"예상 API 호출 횟수: 약 {estimated_calls:,}회")
+
+                        real_minority = (
+                            splits["X_train"]
+                            .loc[y_train == minority_label]
+                            .reset_index(drop=True)
+                        )
+
+                        likely_identifier_keywords = [
+                            "id", "name", "phone", "mobile", "address", "email",
+                            "resident", "ssn", "주민", "이름", "전화", "주소", "메일", "고객번호"
+                        ]
+                        default_excluded = [
+                            c for c in real_minority.columns
+                            if any(k in c.lower() for k in likely_identifier_keywords)
+                        ]
+
+                        excluded_cols = st.multiselect(
+                            "API 전송에서 제외할 변수 (제외 변수는 로컬 bootstrap으로 생성)",
+                            real_minority.columns.tolist(),
+                            default=default_excluded,
+                            key="genai_excluded_cols",
+                        )
+
+                        include_samples = st.checkbox(
+                            "Minority 실제 샘플 일부도 API에 제공 (비식별 데이터일 때만 권장)",
+                            value=False,
+                            key="genai_include_samples",
+                        )
+                        sample_rows = 5
+                        if include_samples:
+                            sample_rows = st.slider(
+                                "API에 제공할 예시 행 수",
+                                1,
+                                min(20, len(real_minority)),
+                                min(5, len(real_minority)),
+                                key="genai_sample_rows",
+                            )
+
+                        remove_duplicates = st.checkbox(
+                            "원본 Train과 완전히 동일한 합성행 제거",
+                            value=True,
+                            key="genai_drop_duplicates",
+                        )
+
+                        cost_ack = st.checkbox(
+                            "API 사용량에 따라 비용이 발생할 수 있음을 확인했습니다.",
+                            value=False,
+                            key="genai_cost_ack",
+                        )
+
+                        if st.button("Generative AI 오버샘플링 실행", key="run_genai"):
+                            if not api_key.strip():
+                                st.error("OpenAI API Key를 입력하세요.")
+                            elif not model_name.strip():
+                                st.error("사용할 OpenAI 모델명을 입력하세요.")
+                            elif target_ratio <= current_ratio:
+                                st.error(
+                                    f"목표 비율은 현재 비율({current_ratio:.3f})보다 커야 합니다."
+                                )
+                            elif n_to_generate <= 0:
+                                st.error("현재 설정에서는 추가 생성할 Minority 데이터가 없습니다.")
+                            elif not cost_ack:
+                                st.error("API 비용 발생 가능성 확인란을 체크하세요.")
+                            elif len(excluded_cols) == real_minority.shape[1]:
+                                st.error("모든 변수를 API 전송 제외로 선택할 수는 없습니다.")
+                            else:
+                                try:
+                                    with st.spinner("OpenAI API로 Minority 합성 데이터를 생성 중입니다..."):
+                                        synthetic_X = generate_openai_synthetic_rows(
+                                            api_key=api_key.strip(),
+                                            model_name=model_name.strip(),
+                                            real_minority=real_minority,
+                                            n_rows=n_to_generate,
+                                            batch_size=batch_size,
+                                            excluded_cols=excluded_cols,
+                                            include_samples=include_samples,
+                                            sample_rows=sample_rows,
+                                        )
+
+                                    if remove_duplicates:
+                                        real_hashable = splits["X_train"].astype(str)
+                                        syn_hashable = synthetic_X.astype(str)
+                                        real_keys = set(map(tuple, real_hashable.to_numpy()))
+                                        keep = [tuple(row) not in real_keys for row in syn_hashable.to_numpy()]
+                                        synthetic_X = synthetic_X.loc[keep].reset_index(drop=True)
+
+                                    if synthetic_X.empty:
+                                        raise ValueError("검증 후 남은 합성 데이터가 없습니다.")
+
+                                    X_res = pd.concat(
+                                        [splits["X_train"], synthetic_X],
+                                        ignore_index=True,
+                                    )
+                                    y_syn = pd.Series(
+                                        [minority_label] * len(synthetic_X),
+                                        name=target_col,
+                                    )
+                                    y_res = pd.concat(
+                                        [y_train.reset_index(drop=True), y_syn],
+                                        ignore_index=True,
+                                    )
+
+                                    X_res, y_res = shuffle(
+                                        X_res,
+                                        y_res,
+                                        random_state=RANDOM_STATE,
+                                    )
+                                    X_res = X_res.reset_index(drop=True)
+                                    y_res = y_res.reset_index(drop=True)
+
+                                    st.session_state.resampled = {
+                                        "X_train": X_res,
+                                        "y_train": y_res,
+                                        "method": f"Generative AI/OpenAI ({model_name}, ratio={target_ratio:.2f})",
+                                        "synthetic_rows": len(synthetic_X),
+                                        "synthetic_sample": synthetic_X.head(20),
+                                    }
+                                    st.session_state.model_results = {}
+
+                                    st.success(
+                                        f"Generative AI 오버샘플링 완료: 합성 데이터 {len(synthetic_X):,}행 추가"
+                                    )
+                                except ImportError:
+                                    st.error(
+                                        "OpenAI Python SDK가 설치되어 있지 않습니다. "
+                                        "requirements.txt에 `openai`를 포함했는지 확인하세요."
+                                    )
+                                except Exception as e:
+                                    st.error(f"Generative AI 오버샘플링 중 오류: {e}")
 
                     if st.session_state.resampled is not None:
                         rs = st.session_state.resampled
@@ -1658,5 +2614,3 @@ elif page == "5. 결과 분석":
         "Accuracy만으로 불균형 신용데이터의 성능을 판단하지 말고 "
         "Precision, Recall, F1-score, ROC-AUC를 함께 확인하세요."
     )
-
-
