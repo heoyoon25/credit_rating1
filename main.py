@@ -1,471 +1,3606 @@
-개인신용평가 모델링 플랫폼 소개
-본 시스템은 개인신용평가 데이터를 활용하여 데이터 탐색부터 전처리, 불균형 데이터 처리, 머신러닝 및 딥러닝 모델 학습, 성능 평가까지의 전 과정을 하나의 환경에서 수행할 수 있도록 개발한 Streamlit 기반 개인신용평가 모델링 플랫폼이다.
-
-개인신용평가 데이터는 일반적으로 정상 고객과 부실 고객의 비율이 불균형한 경우가 많다. 이러한 데이터 불균형은 모델이 다수 클래스에 편향되어 부실 고객을 제대로 식별하지 못하게 하는 원인이 될 수 있다. 본 시스템에서는 이러한 문제를 고려하여 기본 데이터뿐만 아니라 SMOTE, CTGAN, GPT 기반 생성형 AI를 활용한 오버샘플링 기능을 제공한다.
-
-사용자는 프로그래밍 코드를 직접 수정하지 않고도 웹 인터페이스에서 데이터 처리 방법과 모델을 선택할 수 있으며, 각 단계의 결과를 즉시 확인할 수 있다. 전체 분석 과정은 왼쪽 사이드바를 통해 다음의 5단계로 구성된다.
-
-데이터 업로드
-
-데이터 탐색
-
-데이터 전처리
-
-모델 학습
-
-결과 분석
-
-사이드바에는 현재 분석이 어느 단계까지 진행되었는지를 확인할 수 있는 진행 상태가 함께 표시되어 전체 분석 흐름을 쉽게 파악할 수 있도록 구성하였다.
-
-1. 데이터 업로드
-첫 번째 단계는 분석에 사용할 개인신용평가 데이터를 시스템에 불러오는 단계이다.
-
-사용자는 별도의 데이터베이스 연결 없이 자신이 보유한 파일을 웹 페이지에서 직접 업로드할 수 있다. 현재 시스템에서는 CSV 및 Excel 형식의 데이터를 지원한다.
-
-파일을 업로드하면 데이터의 기본 구조를 즉시 확인할 수 있다. 전체 데이터의 행 수와 변수 수, 결측치 수 등이 화면에 표시되며, 데이터 일부를 미리 확인할 수도 있다.
-
-이 기능을 통해 사용자는 본격적인 분석을 수행하기 전에 파일이 정상적으로 업로드되었는지, 데이터의 크기는 어느 정도인지, 결측치가 존재하는지 등을 빠르게 파악할 수 있다.
-
-필요한 경우 현재 시스템에 저장되어 있는 데이터를 다시 CSV 형태로 다운로드할 수도 있다.
-
-즉, 데이터 업로드 단계는 이후 분석의 출발점이며 분석 대상 데이터가 정상적으로 입력되었는지를 확인하는 단계라고 할 수 있다.
-
-
-
-2. 데이터 탐색
-두 번째 단계는 업로드한 데이터의 구조와 특성을 확인하는 탐색적 데이터 분석(Exploratory Data Analysis, EDA) 단계이다.
-
-이 페이지에서는 크게 데이터 요약, 변수 및 데이터 타입 확인, 데이터 시각화, 상관관계 분석을 수행할 수 있다.
-
-2.1 데이터 요약
-데이터 요약 기능에서는 전체 데이터의 기본적인 통계 정보를 확인할 수 있다.
-
-전체 행 수와 변수 수, 결측치 개수, 중복 데이터 수 등을 확인할 수 있으며 각 변수에 대한 기술통계도 제공한다.
-
-수치형 변수의 경우 평균, 표준편차, 최소값, 최대값, 사분위수 등을 확인할 수 있으며, 범주형 변수도 데이터의 구성과 고유값 등을 파악할 수 있다.
-
-또한 사용자가 원하는 행 수만큼 데이터를 직접 조회할 수 있도록 하여 실제 데이터가 어떤 형태로 구성되어 있는지 확인할 수 있다.
-
-
-
-
-2.2 변수 및 데이터 타입 확인
-개인신용평가 데이터에는 연속형 변수, 정수형 변수, 범주형 변수 등 서로 다른 형태의 변수가 포함될 수 있다.
-
-따라서 시스템에서는 각 변수에 대해 다음 정보를 확인할 수 있도록 구성하였다.
-
-변수명
-
-데이터 타입
-
-결측치 개수
-
-결측치 비율
-
-고유값 개수
-
-이를 통해 사용자는 어떤 변수가 숫자형이고 어떤 변수가 범주형인지 판단할 수 있으며 이후 결측치 처리나 인코딩 방법을 결정하는 데 활용할 수 있다.
-
-
-
-2.3 데이터 시각화
-데이터를 숫자로만 확인하는 것보다 그래프를 활용하면 변수의 분포와 특징을 보다 쉽게 파악할 수 있다.
-
-본 시스템에서는 다음과 같은 시각화 기능을 제공한다.
-
-Histogram
-Histogram은 특정 수치형 변수의 분포를 확인하는 데 사용한다.
-
-예를 들어 소득, 대출금액, 신용점수 등의 변수가 어느 구간에 집중되어 있는지 확인할 수 있다.
-
-사용자는 분석할 변수를 직접 선택하고 Histogram의 구간 수를 조정할 수 있다.
-
-Box Plot
-Box Plot은 변수의 중앙값과 분포뿐만 아니라 이상치 여부를 확인하는 데 효과적이다.
-
-특히 소득이나 대출금액처럼 극단적인 값이 존재할 가능성이 높은 변수의 이상치를 파악할 때 활용할 수 있다.
-
-필요한 경우 범주형 변수를 X축으로 지정하여 각 그룹별 분포도 비교할 수 있다.
-
-Scatter Plot
-Scatter Plot은 두 수치형 변수 사이의 관계를 확인하는 데 활용한다.
-
-사용자가 직접 X축과 Y축 변수를 선택할 수 있으며, 필요하면 다른 변수를 기준으로 색상을 구분하여 그룹 간 차이를 확인할 수도 있다.
-
-Bar Chart
-Bar Chart는 범주형 데이터의 빈도 또는 그룹별 수치의 차이를 확인하는 데 활용한다.
-
-예를 들어 대출등급별 고객 수나 특정 범주별 평균 대출금액 등의 정보를 시각적으로 비교할 수 있다.
-
-Line Chart
-Line Chart는 변수의 순서에 따른 변화나 시간 흐름에 따른 데이터 변화를 살펴볼 때 사용할 수 있다.
-
-사용자가 X축과 Y축을 직접 지정할 수 있으므로 데이터 특성에 맞게 활용할 수 있다.
-
-
-
-2.4 상관관계 분석
-상관관계 분석에서는 수치형 변수 간 관계를 Correlation Heatmap 형태로 확인할 수 있다.
-
-Pearson, Spearman, Kendall 상관계수를 선택할 수 있으며 각 변수 간 상관계수가 색상과 숫자로 표시된다.
-
-이를 통해 서로 강하게 연관된 변수들을 확인하고 이후 Feature Selection이나 다중공선성 검토에 참고할 수 있다.
-
-
-
-3. 데이터 전처리
-세 번째 단계는 본격적인 모델 학습 이전에 데이터를 분석에 적합한 형태로 변환하는 단계이다.
-
-본 시스템에서는 데이터 전처리 페이지에서 다음 작업을 수행할 수 있다.
-
-종속변수 설정
-
-결측치 처리
-
-이상치 처리
-
-범주형 변수 인코딩
-
-Feature Selection
-
-Train·Validation·Test 데이터 분할
-
-오버샘플링
-
-3.1 종속변수 설정
-먼저 사용자는 예측하고자 하는 변수를 Target 변수, 즉 종속변수로 선택한다.
-
-예를 들어 대출 정상 여부 또는 부실 여부를 나타내는 loan_status 변수를 종속변수로 지정할 수 있다.
-
-이진분류에서는 두 클래스 중 어떤 클래스를 Positive Class로 설정할 것인지도 사용자가 선택할 수 있다.
-
-개인신용평가의 경우 일반적으로 부실 고객을 Positive Class로 설정하면 Recall, Precision 등의 성능지표가 부실 고객 탐지 성능을 중심으로 계산된다.
-
-3.2 결측치 처리
-실제 금융 데이터에는 일부 변수의 값이 누락되어 있는 경우가 존재할 수 있다.
-
-시스템에서는 사용자가 결측치를 직접 확인하고 처리 방법을 선택할 수 있도록 구성하였다.
-
-결측치 처리 방법에는 다음과 같은 방식이 포함되어 있다.
-
-결측치가 포함된 행 삭제
-
-해당 변수 삭제
-
-평균값 대체
-
-중앙값 대체
-
-최빈값 대체
-
-사용자 지정 값 대체
-
-수치형 변수는 Median, 범주형 변수는 Mode를 사용하는 자동 대체
-
-이를 통해 데이터 특성에 맞는 결측치 처리 전략을 선택할 수 있다.
-
-
-
-3.3 이상치 처리
-이상치는 일반적인 데이터 범위에서 크게 벗어난 값을 의미한다.
-
-본 시스템에서는 수치형 변수를 대상으로 이상치를 탐지하고 처리할 수 있다.
-
-제공되는 방법은 다음과 같다.
-
-IQR 기반 이상치 제거
-1사분위수와 3사분위수를 이용하여 IQR 범위를 계산하고 기준 범위를 벗어난 데이터를 제거한다.
-
-IQR Winsorizing
-이상치를 완전히 삭제하지 않고 일정한 상한값 또는 하한값으로 조정한다.
-
-Z-score 기반 이상치 제거
-각 데이터가 평균에서 표준편차 기준으로 얼마나 떨어져 있는지를 계산하고 일정 기준 이상인 데이터를 제거한다.
-
-사용자는 처리할 변수와 이상치 판단 기준을 직접 설정할 수 있다.
-
-
-
-3.4 인코딩
-머신러닝 모델은 문자 형태의 범주형 데이터를 그대로 처리하기 어려운 경우가 많기 때문에 수치 형태로 변환하는 과정이 필요하다.
-
-본 시스템에서는 두 가지 인코딩 방법을 제공한다.
-
-One-Hot Encoding
-각 범주를 별도의 0과 1 변수로 변환한다.
-
-Label/Ordinal Encoding
-각 범주에 숫자를 부여하여 하나의 수치형 변수로 변환한다.
-
-사용자는 어떤 변수에 인코딩을 적용할지 직접 선택할 수 있다.
-
-
-
-3.5 Feature Selection
-모든 변수를 모델에 사용할 필요는 없기 때문에 불필요한 변수를 제거하고 중요한 변수만 선택하는 Feature Selection 기능을 제공한다.
-
-사용자는 두 가지 방법을 활용할 수 있다.
-
-첫 번째는 직접 변수를 선택하는 방식이다. 연구자가 이론적 배경이나 기존 연구를 바탕으로 필요한 변수만 직접 선택할 수 있다.
-
-두 번째는 SelectKBest 기반 변수 선택이다. Mutual Information을 이용하여 종속변수와 관련성이 높은 변수를 자동으로 평가하고 원하는 개수만큼 선택할 수 있다.
-
-
-
-3.6 Data Partitioning
-모델의 성능을 공정하게 평가하기 위해 전체 데이터를 다음과 같이 분리한다.
-
-Train Set은 모델을 학습하는 데 사용한다.
-
-Validation Set은 학습 과정에서 모델의 성능을 확인하고 하이퍼파라미터 등을 조정하는 데 사용한다.
-
-Test Set은 최종적으로 학습된 모델의 성능을 평가하는 데 사용한다.
-
-사용자는 Train, Validation, Test의 비율을 직접 설정할 수 있다.
-
-또한 Stratified Sampling 기능을 이용하면 정상 고객과 부실 고객의 비율을 각 데이터셋에서도 최대한 유지할 수 있다.
-
-
-
-
-
-3.7 오버샘플링
-개인신용평가에서는 일반적으로 정상 고객이 부실 고객보다 훨씬 많기 때문에 데이터 불균형 문제가 발생한다.
-
-이러한 문제를 해결하기 위해 시스템에서는 Train Set에만 오버샘플링을 적용한다.
-
-Validation Set과 Test Set은 실제 데이터의 분포를 유지하여 모델을 보다 공정하게 평가할 수 있도록 한다.
-
-사용자는 오버샘플링을 적용하지 않고 원본 Train Set을 그대로 사용할 수도 있으며, 다음의 방법을 선택할 수도 있다.
-
-Original Data
-별도의 오버샘플링을 수행하지 않고 기존 Train Set을 그대로 사용한다.
-
-이를 통해 오버샘플링 적용 전 기본 모델의 성능을 측정할 수 있다.
-
-SMOTE
-SMOTE는 Minority Class에 속하는 기존 데이터 사이의 관계를 이용하여 새로운 합성 데이터를 생성하는 대표적인 오버샘플링 방법이다.
-
-사용자는 목표 Minority/Majority 비율을 직접 설정할 수 있다.
-
-CTGAN
-CTGAN은 GAN 기반의 생성모델을 이용하여 실제 Minority Class의 데이터 분포를 학습한 후 새로운 합성 데이터를 생성한다.
-
-단순 보간 방식과 달리 데이터의 복잡한 분포를 학습하여 새로운 표본을 생성한다는 특징이 있다.
-
-GPT 기반 Generative AI Oversampling
-본 시스템에서는 기존 오버샘플링 방법 외에도 GPT API를 활용하여 새로운 Minority Class 데이터를 생성하는 기능을 제공한다.
-
-사용자가 자신의 OpenAI API Key를 입력하여 이용할 수 있으며 사용할 GPT 모델도 직접 선택할 수 있다.
-
-예를 들어 GPT-4o mini, GPT-5 mini, GPT-5 nano 등의 모델을 선택할 수 있으며 선택한 모델과 예상 생성 데이터 수에 따라 API 사용 비용을 사전에 확인할 수 있다.
-
-GPT에게는 기본적으로 Minority 데이터 전체의 통계정보와 비식별화된 실제 예시 10행이 함께 제공된다.
-
-이를 통해 GPT가 단순히 임의의 값을 생성하는 것이 아니라 실제 Minority Class의 변수 범위와 특성, 변수 간 관계를 참고하여 새로운 합성 데이터를 생성하도록 구성하였다.
-
-
-
-
-
-
-
-
-
-
-3.8 개인정보 보호 기능
-개인신용평가 데이터는 민감한 개인정보가 포함될 가능성이 높기 때문에 GPT API를 사용할 때 개인정보 보호가 매우 중요하다.
-
-본 시스템에서는 API 요청 이전에 식별정보로 판단되는 변수를 자동으로 탐지하고 제외한다.
-
-예를 들어 다음과 같은 정보는 API로 전송되지 않도록 설계하였다.
-
-고객 ID
-
-이름 및 성명
-
-전화번호 및 휴대전화번호
-
-주소
-
-이메일
-
-주민등록번호
-
-여권번호
-
-계좌번호
-
-카드번호
-
-고객번호
-
-회원번호
-
-또한 자동으로 탐지되지 않은 변수 중 사용자가 민감하다고 판단하는 변수도 직접 API 전송 대상에서 제외할 수 있다.
-
-따라서 GPT에게 제공되는 통계정보와 실제 예시 행 모두 식별정보가 제거된 상태에서 처리된다.
-
-3.9 GPT 오버샘플링 진행 상황 확인
-GPT API를 이용하여 수천 개의 데이터를 생성하는 경우 여러 번의 API 호출이 필요하기 때문에 상대적으로 많은 시간이 소요될 수 있다.
-
-이를 고려하여 시스템에서는 현재 오버샘플링이 어느 정도 진행되었는지를 확인할 수 있는 Progress Bar를 제공한다.
-
-진행 화면에서는 다음 정보를 확인할 수 있다.
-
-전체 진행률
-
-생성 완료 데이터 수
-
-전체 목표 데이터 수
-
-현재 API Batch
-
-전체 Batch 수
-
-누적 API 호출 수
-
-예상 남은 시간
-
-따라서 사용자는 긴 생성 작업 중에도 현재 진행 상태를 실시간으로 확인할 수 있다.
-
-3.10 GPT 오버샘플링 체크포인트 및 이어하기
-GPT API 기반 데이터 생성은 네트워크 오류나 Streamlit 서버 재실행 등의 이유로 중간에 중단될 수 있다.
-
-이러한 경우 처음부터 다시 데이터를 생성하면 이미 사용한 API 비용과 시간이 낭비될 수 있다.
-
-이를 방지하기 위해 시스템에는 Checkpoint 기능을 적용하였다.
-
-GPT 데이터 생성이 진행되는 동안 API Batch가 완료될 때마다 현재까지 생성된 데이터를 자동으로 저장한다.
-
-예를 들어 5,000개의 데이터를 생성하는 과정에서 2,000개까지 생성한 뒤 작업이 중단되더라도 다시 시스템을 실행했을 때 기존 2,000개의 데이터를 불러와 나머지 3,000개부터 이어서 생성할 수 있다.
-
-또한 체크포인트 파일을 별도로 다운로드할 수 있어 서버 상태가 초기화되더라도 해당 파일을 다시 업로드하여 중단된 지점부터 작업을 재개할 수 있다.
-
-개인정보 보호를 위해 API Key 자체는 체크포인트 파일에 저장하지 않는다.
-
-3.11 오버샘플링 전·후 데이터 분포 확인
-오버샘플링이 정상적으로 이루어졌는지를 확인하기 위해 전처리 페이지에서는 오버샘플링 전후의 종속변수 분포를 비교할 수 있다.
-
-오버샘플링 이전과 이후의 각 클래스 개수와 비율을 표 형태로 확인할 수 있으며 막대그래프를 통해 시각적으로 비교할 수도 있다.
-
-예를 들어 오버샘플링 전 Train Set이 다음과 같다고 가정할 수 있다.
-
-정상 고객 8,000명, 부실 고객 1,000명인 경우 Minority/Majority 비율은 크게 불균형하다.
-
-오버샘플링 이후 정상 고객 8,000명, 부실 고객 8,000명이 되었다면 두 클래스의 비율이 1:1로 조정된 것을 확인할 수 있다.
-
-3.12 Pair Matching 확인
-시스템에서는 사용자가 설정한 종속변수가 1:1 Pair Matching 상태인지 자동으로 확인한다.
-
-두 클래스의 데이터 수가 동일하면 Pair Matching이 완료된 것으로 표시한다.
-
-반대로 두 클래스의 데이터 수가 다르면 현재 Minority/Majority 비율과 두 클래스 사이의 데이터 수 차이를 보여준다.
-
-이를 통해 사용자는 SMOTE, CTGAN 또는 GPT 기반 오버샘플링을 실행한 이후 원하는 데이터 균형이 실제로 달성되었는지를 바로 확인할 수 있다.
-
-또한 오버샘플링 후 생성된 Train 데이터를 직접 확인하거나 CSV 파일로 다운로드할 수도 있다.
-
-4. 모델 학습
-네 번째 단계에서는 전처리가 완료된 데이터를 이용하여 개인신용평가 모델을 학습한다.
-
-본 시스템에서는 전통적인 머신러닝 모델과 신경망 모델을 함께 제공하여 모델별 성능을 비교할 수 있도록 구성하였다.
-
-사용 가능한 모델은 다음과 같다.
-
-4.1 Logistic Regression
-Logistic Regression은 이진분류에서 가장 널리 사용되는 기본 모델 중 하나이다.
-
-각 독립변수가 부실 발생 확률에 어떤 영향을 미치는지를 비교적 간단한 구조로 분석할 수 있다는 장점이 있다.
-
-개인신용평가 분야에서도 대표적인 기준 모델로 활용할 수 있다.
-
-4.2 Random Forest
-Random Forest는 여러 개의 Decision Tree를 생성한 뒤 각각의 결과를 종합하여 최종 예측을 수행하는 Ensemble 모델이다.
-
-비선형적인 변수 관계를 학습할 수 있고 비교적 안정적인 예측 성능을 제공한다.
-
-4.3 Decision Tree
-Decision Tree는 변수에 대한 조건을 반복적으로 분할하여 최종 클래스를 예측한다.
-
-모델의 의사결정 구조를 비교적 쉽게 이해할 수 있기 때문에 해석 측면에서 장점이 있다.
-
-4.4 Multilayer Perceptron
-Multilayer Perceptron, 즉 MLP는 여러 개의 은닉층을 이용하여 복잡한 비선형 관계를 학습하는 인공신경망 모델이다.
-
-사용자는 Hidden Layer 구조와 Learning Rate 등의 주요 하이퍼파라미터를 직접 설정할 수 있다.
-
-4.5 DNN
-DNN은 여러 개의 Dense Layer를 이용한 심층신경망 모델이다.
-
-각 층에서는 ReLU 활성화 함수를 이용하여 비선형 관계를 학습하고 Dropout을 적용하여 과적합을 줄일 수 있도록 구성하였다.
-
-최종 출력층에서는 Sigmoid 함수를 이용하여 고객이 Positive Class에 해당할 확률을 계산한다.
-
-4.6 모델별 하이퍼파라미터 설정
-사용자는 단순히 모델을 선택하는 것뿐만 아니라 각 모델의 주요 하이퍼파라미터도 직접 조정할 수 있다.
-
-예를 들어 Random Forest의 Tree 개수와 최대 깊이, Decision Tree의 최대 깊이, MLP의 Hidden Layer 구조와 Learning Rate, DNN의 Epoch, Batch Size, Learning Rate, Dropout 등을 설정할 수 있다.
-
-이를 통해 동일한 데이터에서도 여러 가지 모델 설정을 실험하고 성능을 비교할 수 있다.
-
-4.7 오버샘플링을 하지 않은 모델 학습
-오버샘플링은 필수 단계가 아니다.
-
-사용자가 Data Partitioning만 완료하였다면 별도의 SMOTE, CTGAN 또는 GPT 데이터 생성을 수행하지 않고도 Original Train Set으로 바로 모델을 학습할 수 있다.
-
-이를 통해 Original 데이터와 각 오버샘플링 방식의 모델 성능을 비교할 수 있다.
-
-예를 들어 연구에서는 다음과 같은 비교가 가능하다.
-
-Original vs SMOTE vs CTGAN vs GPT
-
-각 데이터 조건에서 동일한 분류모델을 학습하면 어떤 오버샘플링 방식이 개인신용평가 성능 향상에 가장 효과적인지를 분석할 수 있다.
-
-5. 결과 분석
-마지막 단계에서는 학습된 개인신용평가 모델의 성능을 평가하고 모델 간 결과를 비교한다.
-
-본 시스템에서는 다음과 같은 대표적인 이진분류 성능지표를 제공한다.
-
-5.1 Accuracy
-Accuracy는 전체 예측 중 모델이 올바르게 예측한 비율을 의미한다.
-
-직관적으로 이해하기 쉬운 지표이지만 개인신용평가처럼 클래스 불균형이 존재하는 경우 Accuracy만으로 모델의 성능을 평가하는 것은 적절하지 않을 수 있다.
-
-5.2 Precision
-Precision은 모델이 부실이라고 예측한 고객 중 실제로 부실 고객인 비율을 나타낸다.
-
-부실 고객이라고 잘못 판단하는 False Positive를 얼마나 줄였는지를 평가하는 데 활용할 수 있다.
-
-5.3 Recall
-Recall은 실제 부실 고객 중 모델이 정확하게 부실 고객으로 탐지한 비율을 의미한다.
-
-개인신용평가에서는 실제 부실 고객을 놓치는 것이 중요할 수 있기 때문에 Recall은 중요한 평가 지표 중 하나이다.
-
-5.4 F1-score
-F1-score는 Precision과 Recall의 조화평균이다.
-
-Precision과 Recall 중 어느 한 지표에만 치우치지 않고 두 성능을 종합적으로 평가할 수 있다.
-
-5.5 ROC-AUC
-ROC-AUC는 모델이 정상 고객과 부실 고객을 얼마나 효과적으로 구분하는지를 종합적으로 평가하는 지표이다.
-
-값이 1에 가까울수록 두 클래스를 효과적으로 구분한다고 볼 수 있다.
-
-5.6 모델별 성능 비교
-결과 분석 페이지에서는 여러 모델의 성능을 하나의 표에서 비교할 수 있다.
-
-이를 통해 어느 모델이 가장 높은 성능을 나타내는지 쉽게 비교할 수 있다.
-
-5.7 ROC Curve
-모델의 분류 성능을 시각적으로 비교하기 위해 ROC Curve를 제공한다.
-
-각 모델의 ROC Curve를 동일한 그래프에 표시하여 Logistic Regression, Random Forest, Decision Tree, MLP, DNN의 성능 차이를 비교할 수 있다.
-
-각 곡선에는 해당 모델의 AUC 값도 함께 표시되므로 모델 간 판별 성능을 보다 직관적으로 확인할 수 있다.
-
-5.8 Validation과 Test 결과 비교
-시스템에서는 최종 Test Set 성능뿐만 아니라 Validation Set의 성능도 함께 확인할 수 있다.
-
-이를 통해 Validation에서는 높은 성능을 보였지만 Test에서는 성능이 크게 떨어지는 모델이 있는지를 확인할 수 있으며 모델의 일반화 성능을 판단하는 데 활용할 수 있다.
+import os
+import gc
+import io
+import hashlib
+import json
+import re
+import time
+import warnings
+import zipfile
+from pathlib import Path
+
+# Streamlit Community Cloud 안정화 설정
+# 이 앱은 Cloud에서 CPU 전용으로 실행하며, 무거운 연산 라이브러리가
+# 불필요하게 CUDA/GPU를 탐색하지 않도록 시작 단계에서 차단합니다.
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
+import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+import plotly.io as pio
+import streamlit as st
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.utils import shuffle
+
+from imblearn.over_sampling import SMOTE
+
+
+# =========================================================
+# 0. 기본 설정
+# =========================================================
+st.set_page_config(
+    page_title="개인신용평가 모델",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# Plotly 전역 시각 스타일
+pio.templates.default = "plotly_white"
+
+# =========================================================
+# Professional UI Theme
+# =========================================================
+st.markdown(
+    r"""
+    <style>
+    :root {
+        --app-bg: #f5f7fa;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --sidebar: #111827;
+        --sidebar-soft: #1f2937;
+        --text: #182230;
+        --muted: #667085;
+        --line: #e4e7ec;
+        --line-strong: #d0d5dd;
+        --accent: #315b78;
+        --accent-hover: #274b65;
+        --accent-soft: #edf4f8;
+        --success: #287a5b;
+        --success-soft: #edf7f2;
+        --warning: #9a6700;
+        --warning-soft: #fff8e7;
+        --danger: #b42318;
+        --danger-soft: #fff1f0;
+    }
+
+    html, body, [class*="css"] {
+        font-family: "Pretendard", "Noto Sans KR", "Segoe UI", Arial, sans-serif;
+        color: var(--text);
+    }
+
+    .stApp {
+        background: var(--app-bg);
+    }
+
+    .main .block-container {
+        max-width: 1480px;
+        padding-top: 2.1rem;
+        padding-bottom: 4rem;
+        padding-left: 2.4rem;
+        padding-right: 2.4rem;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: var(--sidebar);
+        border-right: 1px solid rgba(255,255,255,0.06);
+    }
+
+    section[data-testid="stSidebar"] > div {
+        padding-top: 1.4rem;
+    }
+
+    section[data-testid="stSidebar"] * {
+        color: #e5e7eb;
+    }
+
+    .sidebar-brand {
+        padding: 0.35rem 0.2rem 1.25rem 0.2rem;
+        margin-bottom: 0.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.11);
+    }
+
+    .sidebar-brand .kicker {
+        font-size: 0.70rem;
+        letter-spacing: 0.16em;
+        color: #93a4b8;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+
+    .sidebar-brand .name {
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1.35;
+    }
+
+    .sidebar-brand .sub {
+        font-size: 0.78rem;
+        color: #9ca3af;
+        margin-top: 0.32rem;
+    }
+
+    .sidebar-section-label {
+        margin-top: 1.35rem;
+        margin-bottom: 0.55rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.13em;
+        font-weight: 700;
+        color: #8d9bad !important;
+    }
+
+    section[data-testid="stSidebar"] div[role="radiogroup"] {
+        gap: 0.30rem;
+    }
+
+    section[data-testid="stSidebar"] div[role="radiogroup"] label {
+        padding: 0.55rem 0.62rem;
+        border-radius: 8px;
+        transition: background 0.15s ease;
+    }
+
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        background: rgba(255,255,255,0.06);
+    }
+
+    .workflow-progress {
+        margin-top: 0.6rem;
+        height: 5px;
+        background: rgba(255,255,255,0.10);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .workflow-progress > div {
+        height: 100%;
+        background: #7fa6bf;
+        border-radius: inherit;
+    }
+
+    .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.50rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        font-size: 0.79rem;
+    }
+
+    .status-row:last-child {
+        border-bottom: 0;
+    }
+
+    .status-label {
+        color: #d6dce5 !important;
+    }
+
+    .status-badge {
+        font-size: 0.67rem;
+        line-height: 1;
+        padding: 0.30rem 0.45rem;
+        border-radius: 999px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-badge.done {
+        color: #b7ead4 !important;
+        background: rgba(40,122,91,0.26);
+        border: 1px solid rgba(92,190,147,0.25);
+    }
+
+    .status-badge.wait {
+        color: #b7c1ce !important;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .status-badge.optional {
+        color: #c5d6e4 !important;
+        background: rgba(65,111,143,0.24);
+        border: 1px solid rgba(126,164,190,0.22);
+    }
+
+    /* Page headers */
+    .page-head {
+        margin-bottom: 1.65rem;
+        padding-bottom: 1.15rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .page-head .eyebrow {
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        font-weight: 800;
+        margin-bottom: 0.45rem;
+    }
+
+    .page-head h1 {
+        margin: 0;
+        padding: 0;
+        font-size: 1.75rem;
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+        color: var(--text);
+        font-weight: 750;
+    }
+
+    .page-head p {
+        margin: 0.52rem 0 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+        line-height: 1.65;
+    }
+
+    /* Section headings */
+    h2, h3 {
+        letter-spacing: -0.018em;
+        color: var(--text);
+    }
+
+    h2 {
+        margin-top: 1.6rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+
+    h3 {
+        font-size: 1.03rem !important;
+        font-weight: 700 !important;
+        margin-top: 1.35rem !important;
+    }
+
+    /* Metric cards */
+    div[data-testid="stMetric"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1rem 1.05rem;
+        box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+    }
+
+    div[data-testid="stMetricLabel"] {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 650;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color: var(--text);
+        font-weight: 720;
+    }
+
+    /* Tabs */
+    div[data-baseweb="tab-list"] {
+        gap: 0.35rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.28rem;
+        margin-bottom: 1.05rem;
+    }
+
+    button[data-baseweb="tab"] {
+        border-radius: 7px;
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background: var(--accent-soft);
+        color: var(--accent) !important;
+    }
+
+    div[data-baseweb="tab-highlight"] {
+        display: none;
+    }
+
+    /* Controls */
+    .stButton > button, .stDownloadButton > button {
+        border-radius: 8px;
+        min-height: 2.45rem;
+        font-weight: 650;
+        border: 1px solid var(--line-strong);
+        box-shadow: none;
+    }
+
+    .stButton > button[kind="primary"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #ffffff;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+    }
+
+    .stDownloadButton > button:hover, .stButton > button:not([kind="primary"]):hover {
+        border-color: #9aa7b3;
+        background: var(--surface-soft);
+    }
+
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] > div,
+    input, textarea {
+        border-radius: 8px !important;
+    }
+
+    div[data-testid="stFileUploaderDropzone"] {
+        background: var(--surface);
+        border: 1px dashed #b8c2cc;
+        border-radius: 12px;
+        padding-top: 1.15rem;
+        padding-bottom: 1.15rem;
+    }
+
+    /* Expanders */
+    details[data-testid="stExpander"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    details[data-testid="stExpander"] summary {
+        font-weight: 650;
+    }
+
+    /* Dataframe / charts */
+    div[data-testid="stDataFrame"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0.35rem;
+    }
+
+    /* Alerts */
+    div[data-testid="stAlert"] {
+        border-radius: 9px;
+        border-width: 1px;
+        box-shadow: none;
+    }
+
+    /* Progress */
+    div[data-testid="stProgress"] > div > div > div {
+        background-color: var(--accent);
+    }
+
+    /* Separators / captions */
+    hr {
+        border-color: var(--line) !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .stCaption, small {
+        color: var(--muted) !important;
+    }
+
+    /* Slightly calmer markdown/body spacing */
+    .stMarkdown p {
+        line-height: 1.65;
+    }
+
+    @media (max-width: 900px) {
+        .main .block-container {
+            padding-left: 1.1rem;
+            padding-right: 1.1rem;
+        }
+        .page-head h1 {
+            font-size: 1.48rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+RANDOM_STATE = 42
+CHECKPOINT_DIR = Path.cwd() / ".credit_rating_checkpoints"
+
+# OpenAI API standard text-token pricing (USD per 1M tokens).
+# Update these values when OpenAI changes API pricing.
+OPENAI_MODEL_PRICING = {
+    "GPT-5.6 Sol": {
+        "id": "gpt-5.6-sol",
+        "input_per_million": 5.00,
+        "output_per_million": 30.00,
+        "description": "최고 성능 / 복잡한 생성 작업",
+        "tier": "고성능",
+    },
+    "GPT-5.6 Terra": {
+        "id": "gpt-5.6-terra",
+        "input_per_million": 2.00,
+        "output_per_million": 12.00,
+        "description": "성능과 비용의 균형",
+        "tier": "균형형",
+    },
+    "GPT-5.6 Luna": {
+        "id": "gpt-5.6-luna",
+        "input_per_million": 0.20,
+        "output_per_million": 1.20,
+        "description": "5.6 계열의 저비용·대량 생성용",
+        "tier": "가성비",
+    },
+    "GPT-5 mini": {
+        "id": "gpt-5-mini",
+        "input_per_million": 0.25,
+        "output_per_million": 2.00,
+        "description": "높은 품질과 낮은 비용의 절충",
+        "tier": "가성비",
+    },
+    "GPT-5 nano": {
+        "id": "gpt-5-nano",
+        "input_per_million": 0.05,
+        "output_per_million": 0.40,
+        "description": "매우 저렴한 대량 생성용",
+        "tier": "초저비용",
+    },
+    "GPT-4o mini": {
+        "id": "gpt-4o-mini",
+        "input_per_million": 0.15,
+        "output_per_million": 0.60,
+        "description": "검증된 가성비 모델 / 합성 데이터 대량 생성에 적합",
+        "tier": "가성비",
+    },
+    "GPT-4.1 mini": {
+        "id": "gpt-4.1-mini",
+        "input_per_million": 0.40,
+        "output_per_million": 1.60,
+        "description": "비추론형 고성능·저비용 모델",
+        "tier": "가성비",
+    },
+}
+
+STATE_DEFAULTS = {
+    "raw_df": None,
+    "working_df": None,
+    "upload_signature": None,
+    "target_col": None,
+    "splits": None,
+    "resampled": None,
+    "model_results": {},
+    "encoding_maps": {},
+    "preprocessing_log": [],
+    "feature_selection_info": None,
+}
+
+for key, value in STATE_DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+def render_page_header(step: str, title: str, subtitle: str):
+    """페이지마다 동일한 정보 계층을 유지하는 헤더."""
+    st.markdown(
+        f"""
+        <div class="page-head">
+            <div class="eyebrow">WORKFLOW {step}</div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def sidebar_status_html(label: str, status: str, status_class: str) -> str:
+    return (
+        f'<div class="status-row">'
+        f'<span class="status-label">{label}</span>'
+        f'<span class="status-badge {status_class}">{status}</span>'
+        f'</div>'
+    )
+
+
+# =========================================================
+# 1. 공통 함수
+# =========================================================
+def reset_downstream():
+    """전처리 데이터가 바뀌면 분할/오버샘플링/모델 결과를 초기화."""
+    st.session_state.splits = None
+    st.session_state.resampled = None
+    st.session_state.model_results = {}
+
+
+def update_working_df(new_df: pd.DataFrame, action: str):
+    st.session_state.working_df = new_df.copy()
+    st.session_state.preprocessing_log.append(action)
+    reset_downstream()
+
+
+def get_current_df():
+    return st.session_state.working_df
+
+
+def class_count_table(y: pd.Series, label="class"):
+    vc = y.value_counts().sort_index()
+    return pd.DataFrame({label: vc.index, "count": vc.values})
+
+
+def class_distribution_table(y: pd.Series, stage: str):
+    """종속변수 클래스별 개수와 비율을 계산한다."""
+    vc = y.value_counts().sort_index()
+    total = int(vc.sum())
+    rows = []
+    for cls, count in vc.items():
+        rows.append(
+            {
+                "구분": stage,
+                "클래스": str(cls),
+                "개수": int(count),
+                "비율(%)": round((int(count) / total * 100) if total else 0.0, 2),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def pair_matching_status(y: pd.Series):
+    """이진 종속변수가 정확히 1:1로 균형화되었는지 판정한다."""
+    vc = y.value_counts().sort_index()
+    if len(vc) != 2:
+        return {
+            "is_binary": False,
+            "is_matched": False,
+            "minority": int(vc.min()) if len(vc) else 0,
+            "majority": int(vc.max()) if len(vc) else 0,
+            "ratio": np.nan,
+            "difference": np.nan,
+        }
+
+    minority = int(vc.min())
+    majority = int(vc.max())
+    ratio = minority / majority if majority else np.nan
+    difference = majority - minority
+    return {
+        "is_binary": True,
+        "is_matched": minority == majority,
+        "minority": minority,
+        "majority": majority,
+        "ratio": ratio,
+        "difference": difference,
+    }
+
+
+def oversampling_ratio_control(method_key: str, current_ratio: float, counts: pd.Series):
+    """
+    오버샘플링 목표 비율을 설정한다.
+
+    기본값은 1:1 Pair Matching이며, 사용자가 직접 비율을 실험하고 싶을 때만
+    수동 설정을 해제하여 Minority / Majority 비율을 조정할 수 있다.
+    """
+    majority_n = int(counts.max())
+    minority_n = int(counts.min())
+
+    pair_matching = st.checkbox(
+        "1:1 Pair Matching으로 맞추기",
+        value=True,
+        key=f"{method_key}_pair_matching",
+        help=(
+            "선택하면 오버샘플링 후 Minority와 Majority의 개수를 정확히 동일하게 맞춥니다. "
+            "해제하면 연구 목적에 따라 목표 비율을 직접 설정할 수 있습니다."
+        ),
+    )
+
+    if pair_matching:
+        target_ratio = 1.0
+        needed = max(0, majority_n - minority_n)
+        st.info(
+            f"1:1 Pair Matching 적용: Minority {minority_n:,}행 → {majority_n:,}행 · "
+            f"필요한 합성 데이터 {needed:,}행"
+        )
+    else:
+        default_ratio = min(1.0, max(0.50, round(float(current_ratio), 2)))
+        target_ratio = st.slider(
+            "목표 Minority / Majority 비율",
+            0.10,
+            1.00,
+            default_ratio,
+            0.05,
+            key=f"{method_key}_ratio_manual",
+            help="1.00이면 두 클래스가 정확히 1:1이 됩니다. 0.50이면 Minority가 Majority의 절반이 됩니다.",
+        )
+        st.caption(
+            f"현재 Train 비율은 {current_ratio:.3f}:1이며, 선택한 목표 비율은 {target_ratio:.2f}:1입니다."
+        )
+
+    return float(target_ratio), bool(pair_matching)
+
+
+def safe_auc(y_true, y_prob):
+    try:
+        return roc_auc_score(y_true, y_prob)
+    except Exception:
+        return np.nan
+
+
+def calculate_metrics(y_true, y_pred, y_prob):
+    return {
+        "Accuracy": accuracy_score(y_true, y_pred),
+        "Precision": precision_score(y_true, y_pred, zero_division=0),
+        "Recall": recall_score(y_true, y_pred, zero_division=0),
+        "F1-score": f1_score(y_true, y_pred, zero_division=0),
+        "ROC-AUC": safe_auc(y_true, y_prob),
+    }
+
+
+def snap_synthetic_to_training_domain(synthetic: pd.DataFrame, real: pd.DataFrame):
+    """
+    CTGAN이 생성한 값이 원 데이터의 범위를 크게 벗어나지 않도록 보정.
+    특히 0/1 더미변수나 소수 개 정수 범주형 변수는 가장 가까운 실제 값으로 스냅.
+    """
+    result = synthetic.copy()
+
+    for col in real.columns:
+        if col not in result.columns:
+            continue
+
+        real_col = pd.to_numeric(real[col], errors="coerce")
+        syn_col = pd.to_numeric(result[col], errors="coerce")
+
+        if real_col.notna().sum() == 0:
+            continue
+
+        min_v = real_col.min()
+        max_v = real_col.max()
+        syn_col = syn_col.clip(min_v, max_v)
+
+        unique_vals = np.sort(real_col.dropna().unique())
+
+        # 0/1 dummy 또는 정수형의 소수 범주 변수
+        is_discrete = (
+            len(unique_vals) <= 30
+            and np.all(np.isclose(unique_vals, np.round(unique_vals)))
+        )
+
+        if is_discrete and len(unique_vals) > 0:
+            arr = syn_col.to_numpy(dtype=float)
+            distances = np.abs(arr[:, None] - unique_vals[None, :])
+            nearest_idx = distances.argmin(axis=1)
+            syn_col = pd.Series(unique_vals[nearest_idx], index=result.index)
+
+        result[col] = syn_col
+
+    return result
+
+
+def detect_identifier_columns(columns):
+    """
+    API 외부 전송에서 반드시 제외할 직접 식별자/강한 식별자 후보를 변수명으로 탐지한다.
+
+    주의:
+    - 단순 substring 'id' 검사는 paid 같은 정상 변수를 오탐할 수 있으므로 사용하지 않는다.
+    - 자동 탐지된 변수는 UI에서 해제할 수 없는 보호 변수로 취급한다.
+    """
+    exact_normalized = {
+        # English identifiers
+        "id", "userid", "useridentifier", "customerid", "clientid", "memberid",
+        "accountid", "loanid", "applicationid", "transactionid", "recordid",
+        "name", "fullname", "firstname", "lastname", "middlename", "username",
+        "phone", "phonenumber", "mobile", "mobilenumber", "telephone", "tel",
+        "address", "homeaddress", "streetaddress", "mailingaddress",
+        "email", "emailaddress",
+        "ssn", "socialsecuritynumber", "residentregistrationnumber", "rrn",
+        "passport", "passportnumber",
+        "customernumber", "clientnumber", "membernumber",
+        "accountnumber", "bankaccountnumber", "cardnumber", "creditcardnumber",
+        "zipcode", "postalcode", "postcode",
+        # Korean identifiers
+        "아이디", "사용자아이디", "고객아이디", "회원아이디",
+        "이름", "성명", "성명정보", "고객명", "회원명",
+        "전화번호", "휴대폰번호", "핸드폰번호", "연락처", "휴대전화",
+        "주소", "거주지주소", "도로명주소", "상세주소",
+        "이메일", "이메일주소", "메일주소",
+        "주민등록번호", "주민번호", "외국인등록번호",
+        "여권번호", "운전면허번호",
+        "고객번호", "회원번호", "계좌번호", "카드번호",
+        "우편번호",
+    }
+
+    # 이름 자체에 이 토큰이 명확히 포함되면 식별자로 판단한다.
+    strong_substrings = (
+        "phone", "mobile", "telephone", "email", "address", "passport",
+        "socialsecurity", "residentregistration", "accountnumber", "cardnumber",
+        "전화번호", "휴대폰", "핸드폰", "연락처", "이메일", "주소",
+        "주민등록", "주민번호", "외국인등록", "여권번호", "면허번호",
+        "계좌번호", "카드번호", "고객번호", "회원번호",
+    )
+
+    protected = []
+    for col in columns:
+        raw = str(col).strip()
+        lower = raw.lower()
+        normalized = re.sub(r"[^0-9a-zA-Z가-힣]+", "", lower)
+        tokens = [t for t in re.split(r"[^0-9a-zA-Z가-힣]+", lower) if t]
+
+        is_identifier = normalized in exact_normalized
+
+        # id는 독립 토큰 또는 접미/접두 형태일 때만 인식한다.
+        if not is_identifier:
+            if "id" in tokens or lower.endswith("_id") or lower.startswith("id_"):
+                is_identifier = True
+            elif normalized.endswith("id") and normalized in {
+                "userid", "customerid", "clientid", "memberid", "accountid",
+                "loanid", "applicationid", "transactionid", "recordid"
+            }:
+                is_identifier = True
+
+        if not is_identifier and any(term in normalized for term in strong_substrings):
+            is_identifier = True
+
+        # name은 standalone token 또는 명확한 이름 변수에만 적용한다.
+        if not is_identifier:
+            if "name" in tokens or normalized in {
+                "name", "fullname", "firstname", "lastname", "middlename",
+                "customername", "clientname", "membername", "username",
+                "이름", "성명", "고객명", "회원명"
+            }:
+                is_identifier = True
+
+        if is_identifier:
+            protected.append(col)
+
+    return protected
+
+
+def build_minority_profile(df: pd.DataFrame, included_cols):
+    """API에 원본 행 대신 전달할 Minority class 통계 프로파일."""
+    profile = {}
+    for col in included_cols:
+        s = pd.to_numeric(df[col], errors="coerce").dropna()
+        if s.empty:
+            continue
+        info = {
+            "dtype": str(df[col].dtype),
+            "min": float(s.min()),
+            "max": float(s.max()),
+            "mean": float(s.mean()),
+            "std": float(s.std()) if len(s) > 1 else 0.0,
+            "q1": float(s.quantile(0.25)),
+            "median": float(s.median()),
+            "q3": float(s.quantile(0.75)),
+        }
+        uniques = np.sort(s.unique())
+        if len(uniques) <= 20:
+            info["allowed_values"] = [float(v) for v in uniques]
+        profile[col] = info
+    return profile
+
+
+def get_openai_model_price(model_id):
+    for display_name, info in OPENAI_MODEL_PRICING.items():
+        if info["id"] == model_id:
+            return info
+    raise ValueError(f"가격 정보가 없는 모델입니다: {model_id}")
+
+
+def estimate_tokens_from_text(text):
+    """UI용 보수적 근사치. 실제 과금 토큰과는 차이가 날 수 있다."""
+    if not text:
+        return 0
+    return max(1, int(np.ceil(len(str(text)) / 4.0)))
+
+
+def estimate_openai_generation_cost(
+    model_id,
+    real_minority,
+    n_rows,
+    batch_size,
+    excluded_cols=None,
+    include_samples=True,
+    sample_rows=10,
+):
+    """모델 단가와 예상 input/output token을 이용한 생성 전 비용 추정."""
+    excluded_cols = excluded_cols or []
+    ai_cols = [c for c in real_minority.columns if c not in excluded_cols]
+    if not ai_cols or n_rows <= 0:
+        return {
+            "calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "input_cost": 0.0,
+            "output_cost": 0.0,
+            "total_cost": 0.0,
+        }
+
+    profile = build_minority_profile(real_minority, ai_cols)
+    prompt_payload = {
+        "task": "Generate realistic synthetic minority-class tabular credit-risk feature rows.",
+        "rules": [
+            "Generate new synthetic observations, not explanations.",
+            "Respect each feature's observed range and allowed_values when provided.",
+            "Preserve plausible dependencies and correlations among variables.",
+            "Do not copy an input row verbatim.",
+            "Return exactly the requested number of rows.",
+        ],
+        "minority_feature_profile": profile,
+    }
+    if include_samples:
+        safe_sample = real_minority[ai_cols].head(min(sample_rows, len(real_minority)))
+        prompt_payload["example_minority_rows"] = safe_sample.to_dict(orient="records")
+
+    row_properties = {c: {"type": "number"} for c in ai_cols}
+    schema = {
+        "type": "object",
+        "properties": {
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": row_properties,
+                    "required": ai_cols,
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["rows"],
+        "additionalProperties": False,
+    }
+
+    system_text = (
+        "You generate synthetic tabular data for an academic credit-risk "
+        "classification experiment. Follow the supplied statistical constraints "
+        "and return only data conforming to the schema."
+    )
+    base_input_text = (
+        system_text
+        + json.dumps(prompt_payload, ensure_ascii=False, default=str)
+        + json.dumps(schema, ensure_ascii=False)
+    )
+    input_tokens_per_call = estimate_tokens_from_text(base_input_text) + 30
+    calls = int(np.ceil(n_rows / max(1, int(batch_size))))
+    total_input_tokens = calls * input_tokens_per_call
+
+    # 한 행의 JSON 직렬화 길이를 사용해 출력 토큰을 근사한다.
+    prototype = {}
+    for c in ai_cols:
+        s = pd.to_numeric(real_minority[c], errors="coerce").dropna()
+        prototype[c] = float(s.median()) if not s.empty else 0.0
+    row_text = json.dumps(prototype, ensure_ascii=False)
+    output_tokens_per_row = estimate_tokens_from_text(row_text) + 2
+    total_output_tokens = int(n_rows) * output_tokens_per_row + calls * 12
+
+    price = get_openai_model_price(model_id)
+    input_cost = total_input_tokens / 1_000_000 * price["input_per_million"]
+    output_cost = total_output_tokens / 1_000_000 * price["output_per_million"]
+
+    return {
+        "calls": calls,
+        "input_tokens": int(total_input_tokens),
+        "output_tokens": int(total_output_tokens),
+        "input_cost": float(input_cost),
+        "output_cost": float(output_cost),
+        "total_cost": float(input_cost + output_cost),
+    }
+
+
+def calculate_openai_cost_from_usage(model_id, input_tokens, output_tokens):
+    price = get_openai_model_price(model_id)
+    input_cost = input_tokens / 1_000_000 * price["input_per_million"]
+    output_cost = output_tokens / 1_000_000 * price["output_per_million"]
+    return {
+        "input_tokens": int(input_tokens),
+        "output_tokens": int(output_tokens),
+        "input_cost": float(input_cost),
+        "output_cost": float(output_cost),
+        "total_cost": float(input_cost + output_cost),
+    }
+
+
+
+def dataframe_signature(df: pd.DataFrame):
+    """현재 Train minority 데이터가 같은 작업인지 확인하기 위한 안정적인 해시."""
+    hashed = pd.util.hash_pandas_object(df, index=True).values.tobytes()
+    h = hashlib.sha256()
+    h.update(hashed)
+    h.update("|".join(map(str, df.columns)).encode("utf-8"))
+    h.update("|".join(map(str, df.dtypes)).encode("utf-8"))
+    return h.hexdigest()
+
+
+def build_genai_job_id(
+    real_minority,
+    model_name,
+    target_rows,
+    batch_size,
+    excluded_cols,
+    include_samples,
+    sample_rows,
+    target_col,
+    minority_label,
+):
+    """같은 데이터/설정의 GPT 생성 작업을 식별하는 ID."""
+    payload = {
+        "data_signature": dataframe_signature(real_minority),
+        "model_name": model_name,
+        "target_rows": int(target_rows),
+        "batch_size": int(batch_size),
+        "excluded_cols": sorted(list(excluded_cols or [])),
+        "include_samples": bool(include_samples),
+        "sample_rows": int(sample_rows),
+        "target_col": str(target_col),
+        "minority_label": str(minority_label),
+        "columns": list(map(str, real_minority.columns)),
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:24], payload
+
+
+def _checkpoint_paths(job_id):
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    return (
+        CHECKPOINT_DIR / f"{job_id}.pkl",
+        CHECKPOINT_DIR / f"{job_id}.json",
+    )
+
+
+def save_genai_checkpoint(job_id, synthetic_df, metadata):
+    """배치가 끝날 때마다 로컬 디스크에 원자적으로 체크포인트 저장."""
+    data_path, meta_path = _checkpoint_paths(job_id)
+    metadata = dict(metadata)
+    metadata["job_id"] = job_id
+    metadata["generated_rows"] = int(len(synthetic_df))
+    metadata["updated_at"] = pd.Timestamp.now().isoformat()
+
+    tmp_data = data_path.with_suffix('.pkl.tmp')
+    tmp_meta = meta_path.with_suffix('.json.tmp')
+    synthetic_df.to_pickle(tmp_data)
+    tmp_meta.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2, default=str),
+        encoding='utf-8',
+    )
+    tmp_data.replace(data_path)
+    tmp_meta.replace(meta_path)
+
+
+def load_genai_checkpoint(job_id):
+    data_path, meta_path = _checkpoint_paths(job_id)
+    if not data_path.exists() or not meta_path.exists():
+        return None
+    try:
+        synthetic_df = pd.read_pickle(data_path)
+        metadata = json.loads(meta_path.read_text(encoding='utf-8'))
+        return {"synthetic_df": synthetic_df, "metadata": metadata}
+    except Exception:
+        return None
+
+
+def delete_genai_checkpoint(job_id):
+    data_path, meta_path = _checkpoint_paths(job_id)
+    for path in (data_path, meta_path):
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def build_checkpoint_zip_bytes(job_id, synthetic_df, metadata):
+    """사용자가 보관할 수 있는 안전한 ZIP(CSV + JSON) 체크포인트 생성."""
+    meta = dict(metadata)
+    meta["job_id"] = job_id
+    meta["generated_rows"] = int(len(synthetic_df))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            'metadata.json',
+            json.dumps(meta, ensure_ascii=False, indent=2, default=str),
+        )
+        zf.writestr(
+            'synthetic_rows.csv',
+            synthetic_df.to_csv(index=False).encode('utf-8-sig'),
+        )
+    return buffer.getvalue()
+
+
+def import_checkpoint_zip_bytes(zip_bytes, expected_job_id, expected_columns):
+    """사용자가 저장해 둔 ZIP 체크포인트를 다시 읽는다. Pickle은 보안상 업로드받지 않는다."""
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
+        names = set(zf.namelist())
+        if 'metadata.json' not in names or 'synthetic_rows.csv' not in names:
+            raise ValueError('체크포인트 ZIP에 metadata.json 또는 synthetic_rows.csv가 없습니다.')
+        metadata = json.loads(zf.read('metadata.json').decode('utf-8'))
+        if metadata.get('job_id') != expected_job_id:
+            raise ValueError(
+                '현재 데이터/모델/생성 설정과 다른 체크포인트입니다. '
+                '체크포인트를 만든 당시의 설정으로 맞춘 뒤 다시 시도하세요.'
+            )
+        synthetic_df = pd.read_csv(io.BytesIO(zf.read('synthetic_rows.csv')))
+
+    expected_columns = list(expected_columns)
+    missing = [c for c in expected_columns if c not in synthetic_df.columns]
+    if missing:
+        raise ValueError(f'체크포인트에 필요한 변수들이 없습니다: {missing}')
+    synthetic_df = synthetic_df[expected_columns].copy()
+    return synthetic_df, metadata
+
+
+def generate_openai_synthetic_rows(
+    api_key,
+    model_name,
+    real_minority,
+    n_rows,
+    batch_size=20,
+    excluded_cols=None,
+    include_samples=True,
+    sample_rows=10,
+    progress_callback=None,
+    checkpoint_callback=None,
+    resume_df=None,
+    initial_input_tokens=0,
+    initial_output_tokens=0,
+    initial_batch_no=0,
+):
+    """
+    OpenAI Structured Outputs를 이용해 Minority class의 합성 feature 행을 생성.
+    기본값은 통계 프로파일 + 비식별 Minority 예시 10행을 전송한다.
+    excluded_cols(자동 식별정보 보호 변수 포함)는 API에 절대 전송하지 않고
+    Minority 실제값에서 로컬 bootstrap한다.
+    """
+    from openai import OpenAI
+
+    excluded_cols = excluded_cols or []
+    all_cols = real_minority.columns.tolist()
+    ai_cols = [c for c in all_cols if c not in excluded_cols]
+
+    if not ai_cols:
+        raise ValueError("API에 전달할 변수가 하나 이상 필요합니다.")
+
+    profile = build_minority_profile(real_minority, ai_cols)
+
+    row_properties = {c: {"type": "number"} for c in ai_cols}
+    schema = {
+        "type": "object",
+        "properties": {
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": row_properties,
+                    "required": ai_cols,
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["rows"],
+        "additionalProperties": False,
+    }
+
+    prompt_payload = {
+        "task": "Generate realistic synthetic minority-class tabular credit-risk feature rows.",
+        "rules": [
+            "Generate new synthetic observations, not explanations.",
+            "Respect each feature's observed range and allowed_values when provided.",
+            "Preserve plausible dependencies and correlations among variables.",
+            "Do not copy an input row verbatim.",
+            "Return exactly the requested number of rows.",
+        ],
+        "minority_feature_profile": profile,
+    }
+
+    if include_samples:
+        safe_sample = real_minority[ai_cols].sample(
+            n=min(sample_rows, len(real_minority)),
+            random_state=RANDOM_STATE,
+        )
+        prompt_payload["example_minority_rows"] = safe_sample.to_dict(orient="records")
+
+    client = OpenAI(api_key=api_key)
+
+    if resume_df is not None and len(resume_df) > 0:
+        resume_df = resume_df.reindex(columns=all_cols).copy().head(int(n_rows))
+        generated_batches = [resume_df]
+        already_generated = int(len(resume_df))
+    else:
+        generated_batches = []
+        already_generated = 0
+
+    remaining = max(0, int(n_rows) - already_generated)
+    batch_no = int(initial_batch_no or 0)
+    estimated_batches = int(np.ceil(int(n_rows) / max(1, int(batch_size))))
+    total_input_tokens = int(initial_input_tokens or 0)
+    total_output_tokens = int(initial_output_tokens or 0)
+
+    if progress_callback is not None:
+        progress_callback({
+            "stage": "resuming" if already_generated else "starting",
+            "batch_no": batch_no,
+            "estimated_batches": estimated_batches,
+            "generated_rows": already_generated,
+            "target_rows": int(n_rows),
+            "progress": already_generated / max(1, int(n_rows)),
+        })
+
+    while remaining > 0:
+        batch_no += 1
+        current_n = min(int(batch_size), remaining)
+        rows_before_batch = int(n_rows) - remaining
+
+        if progress_callback is not None:
+            progress_callback({
+                "stage": "requesting",
+                "batch_no": batch_no,
+                "estimated_batches": estimated_batches,
+                "generated_rows": rows_before_batch,
+                "target_rows": int(n_rows),
+                "progress": rows_before_batch / max(1, int(n_rows)),
+            })
+
+        request_payload = dict(prompt_payload)
+        request_payload["number_of_rows"] = current_n
+
+        response = client.responses.create(
+            model=model_name,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You generate synthetic tabular data for an academic credit-risk "
+                        "classification experiment. Follow the supplied statistical constraints "
+                        "and return only data conforming to the schema."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(request_payload, ensure_ascii=False),
+                },
+            ],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "synthetic_credit_rows",
+                    "strict": True,
+                    "schema": schema,
+                }
+            },
+        )
+
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            total_input_tokens += int(getattr(usage, "input_tokens", 0) or 0)
+            total_output_tokens += int(getattr(usage, "output_tokens", 0) or 0)
+
+        parsed = json.loads(response.output_text)
+        rows = parsed.get("rows", [])
+        if not rows:
+            raise ValueError(f"API batch {batch_no}에서 합성 행을 받지 못했습니다.")
+
+        batch_df = pd.DataFrame(rows)
+        for c in ai_cols:
+            if c not in batch_df.columns:
+                raise ValueError(f"API 응답에 변수 '{c}'가 없습니다.")
+            batch_df[c] = pd.to_numeric(batch_df[c], errors="coerce")
+
+        batch_df = batch_df[ai_cols].dropna().copy()
+        if batch_df.empty:
+            raise ValueError(f"API batch {batch_no}의 데이터가 수치형 검증을 통과하지 못했습니다.")
+
+        # API에 보내지 않은 변수는 외부 전송 없이 Minority 실제 분포에서 bootstrap
+        for c in excluded_cols:
+            rng = np.random.default_rng(RANDOM_STATE + batch_no)
+            source = real_minority[c].dropna().to_numpy()
+            if len(source) == 0:
+                batch_df[c] = 0.0
+            else:
+                batch_df[c] = rng.choice(source, size=len(batch_df), replace=True)
+
+        batch_df = batch_df.reindex(columns=all_cols)
+        batch_df = snap_synthetic_to_training_domain(batch_df, real_minority)
+        generated_batches.append(batch_df)
+        remaining -= min(len(batch_df), current_n)
+        rows_after_batch = int(n_rows) - remaining
+
+        progress_info = {
+            "stage": "completed",
+            "batch_no": batch_no,
+            "estimated_batches": estimated_batches,
+            "generated_rows": rows_after_batch,
+            "target_rows": int(n_rows),
+            "progress": min(1.0, rows_after_batch / max(1, int(n_rows))),
+            "input_tokens": int(total_input_tokens),
+            "output_tokens": int(total_output_tokens),
+        }
+
+        if progress_callback is not None:
+            progress_callback(progress_info)
+
+        if checkpoint_callback is not None:
+            current_synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows))
+            checkpoint_callback(current_synthetic, progress_info)
+
+    synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows)) if generated_batches else pd.DataFrame(columns=all_cols)
+    usage_summary = calculate_openai_cost_from_usage(
+        model_name, total_input_tokens, total_output_tokens
+    )
+    usage_summary["completed_batches"] = int(batch_no)
+    usage_summary["generated_rows"] = int(len(synthetic))
+    return synthetic, usage_summary
+
+
+def parse_hidden_layers(text):
+    try:
+        layers = tuple(int(x.strip()) for x in text.split(",") if x.strip())
+        if not layers or any(x <= 0 for x in layers):
+            raise ValueError
+        return layers
+    except Exception:
+        return (128, 64)
+
+
+def train_and_evaluate_selected_models(selected_models, params):
+    splits = st.session_state.splits
+    resampled = st.session_state.resampled
+
+    if splits is None:
+        st.error("먼저 데이터 전처리 페이지에서 Train / Validation / Test 분할을 수행하세요.")
+        return
+
+    if resampled is not None:
+        X_train = resampled["X_train"].copy()
+        y_train = resampled["y_train"].copy()
+        sampling_name = resampled["method"]
+    else:
+        X_train = splits["X_train"].copy()
+        y_train = splits["y_train"].copy()
+        sampling_name = "No oversampling"
+
+    X_val = splits["X_val"].copy()
+    y_val = splits["y_val"].copy()
+    X_test = splits["X_test"].copy()
+    y_test = splits["y_test"].copy()
+
+    results = {}
+
+    # 선형/신경망 모델용 스케일러는 오직 Train에만 fit
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_val_scaled = scaler.transform(X_val)
+    X_test_scaled = scaler.transform(X_test)
+
+    progress = st.progress(0)
+    total = max(len(selected_models), 1)
+
+    for idx, model_name in enumerate(selected_models, start=1):
+        with st.spinner(f"{model_name} 학습 중..."):
+            if model_name == "Logistic Regression":
+                model = LogisticRegression(
+                    C=params["logistic_c"],
+                    max_iter=3000,
+                    random_state=RANDOM_STATE,
+                )
+                model.fit(X_train_scaled, y_train)
+
+                val_prob = model.predict_proba(X_val_scaled)[:, 1]
+                test_prob = model.predict_proba(X_test_scaled)[:, 1]
+                val_pred = (val_prob >= 0.5).astype(int)
+                test_pred = (test_prob >= 0.5).astype(int)
+
+                model_obj = model
+                model_scaler = scaler
+
+            elif model_name == "Random Forest":
+                max_depth = None if params["rf_max_depth"] == 0 else params["rf_max_depth"]
+                model = RandomForestClassifier(
+                    n_estimators=params["rf_n_estimators"],
+                    max_depth=max_depth,
+                    random_state=RANDOM_STATE,
+                    n_jobs=-1,
+                    class_weight=None,
+                )
+                model.fit(X_train, y_train)
+
+                val_prob = model.predict_proba(X_val)[:, 1]
+                test_prob = model.predict_proba(X_test)[:, 1]
+                val_pred = (val_prob >= 0.5).astype(int)
+                test_pred = (test_prob >= 0.5).astype(int)
+
+                model_obj = model
+                model_scaler = None
+
+            elif model_name == "Decision Tree":
+                max_depth = None if params["dt_max_depth"] == 0 else params["dt_max_depth"]
+                model = DecisionTreeClassifier(
+                    max_depth=max_depth,
+                    min_samples_split=params["dt_min_samples_split"],
+                    random_state=RANDOM_STATE,
+                )
+                model.fit(X_train, y_train)
+
+                val_prob = model.predict_proba(X_val)[:, 1]
+                test_prob = model.predict_proba(X_test)[:, 1]
+                val_pred = (val_prob >= 0.5).astype(int)
+                test_pred = (test_prob >= 0.5).astype(int)
+
+                model_obj = model
+                model_scaler = None
+
+            elif model_name == "Multilayer Perceptron":
+                model = MLPClassifier(
+                    hidden_layer_sizes=params["mlp_layers"],
+                    activation="relu",
+                    solver="adam",
+                    learning_rate_init=params["mlp_lr"],
+                    max_iter=params["mlp_max_iter"],
+                    early_stopping=True,
+                    validation_fraction=0.1,
+                    n_iter_no_change=15,
+                    random_state=RANDOM_STATE,
+                )
+                model.fit(X_train_scaled, y_train)
+
+                val_prob = model.predict_proba(X_val_scaled)[:, 1]
+                test_prob = model.predict_proba(X_test_scaled)[:, 1]
+                val_pred = (val_prob >= 0.5).astype(int)
+                test_pred = (test_prob >= 0.5).astype(int)
+
+                model_obj = model
+                model_scaler = scaler
+
+            elif model_name == "DNN":
+                # Streamlit Community Cloud에서는 TensorFlow를 별도로 올리지 않고
+                # Streamlit Community Cloud에서 GPU를 사용하지 않고 CPU 전용 PyTorch로 학습합니다.
+                import copy
+                from types import SimpleNamespace
+
+                import torch
+                import torch.nn as nn
+
+                torch.set_num_threads(1)
+                try:
+                    torch.set_num_interop_threads(1)
+                except RuntimeError:
+                    pass
+                torch.manual_seed(RANDOM_STATE)
+
+                device = torch.device("cpu")
+
+                Xtr = torch.tensor(
+                    np.asarray(X_train_scaled, dtype=np.float32),
+                    dtype=torch.float32,
+                    device=device,
+                )
+                ytr = torch.tensor(
+                    y_train.to_numpy(dtype=np.float32).reshape(-1, 1),
+                    dtype=torch.float32,
+                    device=device,
+                )
+                Xv = torch.tensor(
+                    np.asarray(X_val_scaled, dtype=np.float32),
+                    dtype=torch.float32,
+                    device=device,
+                )
+                yv = torch.tensor(
+                    y_val.to_numpy(dtype=np.float32).reshape(-1, 1),
+                    dtype=torch.float32,
+                    device=device,
+                )
+
+                model = nn.Sequential(
+                    nn.Linear(Xtr.shape[1], 128),
+                    nn.ReLU(),
+                    nn.Dropout(float(params["dnn_dropout"])),
+                    nn.Linear(128, 64),
+                    nn.ReLU(),
+                    nn.Dropout(float(params["dnn_dropout"])),
+                    nn.Linear(64, 32),
+                    nn.ReLU(),
+                    nn.Linear(32, 1),
+                ).to(device)
+
+                criterion = nn.BCEWithLogitsLoss()
+                optimizer = torch.optim.Adam(
+                    model.parameters(),
+                    lr=float(params["dnn_lr"]),
+                )
+
+                max_epochs = int(params["dnn_epochs"])
+                batch_size = int(params["dnn_batch_size"])
+                patience = 12
+                best_val_loss = float("inf")
+                best_state = None
+                stale_epochs = 0
+                history_dict = {
+                    "loss": [],
+                    "val_loss": [],
+                    "accuracy": [],
+                    "val_accuracy": [],
+                }
+
+                n_train = Xtr.shape[0]
+                for _epoch in range(max_epochs):
+                    model.train()
+                    permutation = torch.randperm(n_train, device=device)
+                    epoch_loss_sum = 0.0
+                    epoch_correct = 0
+
+                    for batch_start in range(0, n_train, batch_size):
+                        idx_batch = permutation[batch_start: batch_start + batch_size]
+                        xb = Xtr[idx_batch]
+                        yb = ytr[idx_batch]
+
+                        optimizer.zero_grad(set_to_none=True)
+                        logits = model(xb)
+                        loss = criterion(logits, yb)
+                        loss.backward()
+                        optimizer.step()
+
+                        epoch_loss_sum += float(loss.item()) * len(idx_batch)
+                        pred = (torch.sigmoid(logits) >= 0.5).float()
+                        epoch_correct += int((pred == yb).sum().item())
+
+                    train_loss = epoch_loss_sum / max(1, n_train)
+                    train_acc = epoch_correct / max(1, n_train)
+
+                    model.eval()
+                    with torch.no_grad():
+                        val_logits = model(Xv)
+                        val_loss = float(criterion(val_logits, yv).item())
+                        val_pred_t = (torch.sigmoid(val_logits) >= 0.5).float()
+                        val_acc = float((val_pred_t == yv).float().mean().item())
+
+                    history_dict["loss"].append(train_loss)
+                    history_dict["val_loss"].append(val_loss)
+                    history_dict["accuracy"].append(train_acc)
+                    history_dict["val_accuracy"].append(val_acc)
+
+                    if val_loss < best_val_loss - 1e-6:
+                        best_val_loss = val_loss
+                        best_state = copy.deepcopy(model.state_dict())
+                        stale_epochs = 0
+                    else:
+                        stale_epochs += 1
+                        if stale_epochs >= patience:
+                            break
+
+                if best_state is not None:
+                    model.load_state_dict(best_state)
+
+                model.eval()
+                with torch.no_grad():
+                    val_prob = torch.sigmoid(
+                        model(torch.tensor(
+                            np.asarray(X_val_scaled, dtype=np.float32),
+                            dtype=torch.float32,
+                            device=device,
+                        ))
+                    ).cpu().numpy().ravel()
+                    test_prob = torch.sigmoid(
+                        model(torch.tensor(
+                            np.asarray(X_test_scaled, dtype=np.float32),
+                            dtype=torch.float32,
+                            device=device,
+                        ))
+                    ).cpu().numpy().ravel()
+
+                val_pred = (val_prob >= 0.5).astype(int)
+                test_pred = (test_prob >= 0.5).astype(int)
+
+                model_obj = model
+                model_scaler = scaler
+                history = SimpleNamespace(history=history_dict)
+
+            else:
+                continue
+
+            test_metrics = calculate_metrics(y_test, test_pred, test_prob)
+            val_metrics = calculate_metrics(y_val, val_pred, val_prob)
+
+            fpr, tpr, thresholds = roc_curve(y_test, test_prob)
+
+            results[model_name] = {
+                "model": model_obj,
+                "scaler": model_scaler,
+                "sampling": sampling_name,
+                "validation_metrics": val_metrics,
+                "test_metrics": test_metrics,
+                "test_y_true": y_test.to_numpy(),
+                "test_y_pred": np.asarray(test_pred),
+                "test_y_prob": np.asarray(test_prob),
+                "roc_fpr": fpr,
+                "roc_tpr": tpr,
+                "roc_thresholds": thresholds,
+            }
+
+            if model_name == "DNN":
+                results[model_name]["history"] = history.history
+
+        progress.progress(idx / total)
+
+    st.session_state.model_results = results
+    st.success("선택한 모델의 학습과 평가가 완료되었습니다.")
+
+
+# =========================================================
+# 2. 사이드바
+# =========================================================
+st.sidebar.markdown(
+    """
+    <div class="sidebar-brand">
+        <div class="kicker">CREDIT ANALYTICS</div>
+        <div class="name">개인신용평가 모델</div>
+        <div class="sub">Credit Scoring Modeling System</div>
+    </div>
+    <div class="sidebar-section-label">WORKFLOW</div>
+    """,
+    unsafe_allow_html=True,
+)
+
+page = st.sidebar.radio(
+    "분석 단계",
+    [
+        "1. 데이터 업로드",
+        "2. 데이터 탐색",
+        "3. 데이터 전처리",
+        "4. 모델 학습",
+        "5. 결과 분석",
+    ],
+    label_visibility="collapsed",
+)
+
+status_upload = ("완료", "done") if st.session_state.working_df is not None else ("대기", "wait")
+status_split = ("완료", "done") if st.session_state.splits is not None else ("대기", "wait")
+status_sampling = ("완료", "done") if st.session_state.resampled is not None else ("선택", "optional")
+status_model = ("완료", "done") if st.session_state.model_results else ("대기", "wait")
+
+core_done = sum([
+    st.session_state.working_df is not None,
+    st.session_state.splits is not None,
+    bool(st.session_state.model_results),
+])
+progress_pct = int(core_done / 3 * 100)
+
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-section-label">PROGRESS</div>
+    <div style="display:flex; justify-content:space-between; font-size:0.74rem; color:#9ca3af; margin-bottom:0.3rem;">
+        <span>핵심 단계 진행률</span><span>{progress_pct}%</span>
+    </div>
+    <div class="workflow-progress"><div style="width:{progress_pct}%"></div></div>
+    <div style="margin-top:0.8rem;">
+        {sidebar_status_html("데이터 업로드", *status_upload)}
+        {sidebar_status_html("데이터 분할", *status_split)}
+        {sidebar_status_html("오버샘플링", *status_sampling)}
+        {sidebar_status_html("모델 학습", *status_model)}
+    </div>
+    <div style="margin-top:1rem; font-size:0.70rem; line-height:1.55; color:#8491a2;">
+        오버샘플링은 선택 단계이며, 원본 Train set으로도 모델 학습이 가능합니다.
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# =========================================================
+# 3. 데이터 업로드
+# =========================================================
+if page == "1. 데이터 업로드":
+    render_page_header("01", "데이터 업로드", "분석에 사용할 원본 데이터를 불러오고 기본 구조와 품질을 확인합니다.")
+
+    uploaded_file = st.file_uploader(
+        "데이터 파일 선택",
+        type=["csv", "xlsx", "xls"],
+        help="CSV, XLSX, XLS 파일을 지원합니다.",
+    )
+
+    if uploaded_file is not None:
+        raw_bytes = uploaded_file.getvalue()
+        signature = hashlib.md5(raw_bytes).hexdigest()
+
+        if signature != st.session_state.upload_signature:
+            try:
+                if uploaded_file.name.lower().endswith(".csv"):
+                    df = pd.read_csv(io.BytesIO(raw_bytes))
+                else:
+                    df = pd.read_excel(io.BytesIO(raw_bytes))
+
+                st.session_state.raw_df = df.copy()
+                st.session_state.working_df = df.copy()
+                st.session_state.upload_signature = signature
+                st.session_state.target_col = None
+                st.session_state.encoding_maps = {}
+                st.session_state.preprocessing_log = []
+                st.session_state.feature_selection_info = None
+                reset_downstream()
+
+                st.success("새 데이터가 정상적으로 업로드되었습니다.")
+            except Exception as e:
+                st.error(f"파일을 읽는 중 오류가 발생했습니다: {e}")
+
+    df = get_current_df()
+
+    if df is not None:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("행 수", f"{len(df):,}")
+        c2.metric("열 수", f"{df.shape[1]:,}")
+        c3.metric("결측치 수", f"{int(df.isna().sum().sum()):,}")
+
+        st.subheader("데이터 미리보기")
+        st.dataframe(df.head(20), width="stretch")
+
+        csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "현재 데이터 CSV로 다운로드",
+            data=csv_bytes,
+            file_name="credit_scoring_current_data.csv",
+            mime="text/csv",
+        )
+
+
+# =========================================================
+# 4. 데이터 탐색
+# =========================================================
+elif page == "2. 데이터 탐색":
+    render_page_header("02", "데이터 탐색", "데이터 구조, 기술통계, 변수 분포 및 변수 간 관계를 체계적으로 점검합니다.")
+
+    df = get_current_df()
+
+    if df is None:
+        st.warning("먼저 데이터 업로드 메뉴에서 데이터를 업로드하세요.")
+        st.stop()
+
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["데이터 요약", "변수/타입", "시각화", "상관관계"]
+    )
+
+    with tab1:
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("행", f"{df.shape[0]:,}")
+        c2.metric("열", f"{df.shape[1]:,}")
+        c3.metric("전체 결측치", f"{int(df.isna().sum().sum()):,}")
+        c4.metric("중복 행", f"{int(df.duplicated().sum()):,}")
+
+        st.subheader("기술통계")
+        summary = df.describe(include="all").T
+        st.dataframe(summary, width="stretch")
+
+        st.subheader("총 행 수")
+        max_preview = max(1, min(100, len(df)))
+        n_preview = st.slider("표시할 행 수", 1, max_preview, min(20, max_preview))
+        st.dataframe(df.head(n_preview), width="stretch")
+
+    with tab2:
+        info_df = pd.DataFrame(
+            {
+                "변수명": df.columns,
+                "데이터 타입": [str(x) for x in df.dtypes],
+                "결측치 수": df.isna().sum().values,
+                "결측치 비율(%)": (df.isna().mean().values * 100).round(2),
+                "고유값 수": df.nunique(dropna=True).values,
+            }
+        )
+        st.dataframe(info_df, width="stretch")
+
+    with tab3:
+        chart_type = st.selectbox(
+            "차트 종류",
+            ["Histogram", "Box Plot", "Scatter Plot", "Bar Chart", "Line Chart"],
+        )
+
+        all_cols = df.columns.tolist()
+        numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+
+        if chart_type == "Histogram":
+            if not numeric_cols:
+                st.warning("수치형 변수가 없습니다.")
+            else:
+                x_col = st.selectbox("X축 변수", numeric_cols)
+                bins = st.slider("Bin 수", 5, 100, 30)
+                fig = px.histogram(df, x=x_col, nbins=bins, title=f"Histogram: {x_col}")
+                st.plotly_chart(fig, width="stretch")
+
+        elif chart_type == "Box Plot":
+            if not numeric_cols:
+                st.warning("수치형 변수가 없습니다.")
+            else:
+                y_col = st.selectbox("Y축 수치 변수", numeric_cols)
+                x_option = st.selectbox("X축 그룹 변수", ["사용 안 함"] + all_cols)
+                x_col = None if x_option == "사용 안 함" else x_option
+                fig = px.box(df, x=x_col, y=y_col, points="outliers")
+                st.plotly_chart(fig, width="stretch")
+
+        elif chart_type == "Scatter Plot":
+            if len(numeric_cols) < 2:
+                st.warning("Scatter Plot에는 수치형 변수가 2개 이상 필요합니다.")
+            else:
+                x_col = st.selectbox("X축 변수", numeric_cols, key="scatter_x")
+                y_candidates = [c for c in numeric_cols if c != x_col]
+                y_col = st.selectbox("Y축 변수", y_candidates, key="scatter_y")
+                color_option = st.selectbox("색상 구분", ["사용 안 함"] + all_cols)
+                color_col = None if color_option == "사용 안 함" else color_option
+                fig = px.scatter(df, x=x_col, y=y_col, color=color_col)
+                st.plotly_chart(fig, width="stretch")
+
+        elif chart_type == "Bar Chart":
+            x_col = st.selectbox("X축 변수", all_cols, key="bar_x")
+            y_option = st.selectbox(
+                "Y축 변수",
+                ["빈도(Count)"] + numeric_cols,
+                key="bar_y",
+            )
+
+            if y_option == "빈도(Count)":
+                plot_df = (
+                    df[x_col]
+                    .astype(str)
+                    .value_counts(dropna=False)
+                    .rename_axis(x_col)
+                    .reset_index(name="Count")
+                )
+                fig = px.bar(plot_df, x=x_col, y="Count")
+            else:
+                agg_method = st.selectbox("집계 방식", ["mean", "sum", "median"])
+                plot_df = (
+                    df.groupby(x_col, dropna=False)[y_option]
+                    .agg(agg_method)
+                    .reset_index()
+                )
+                fig = px.bar(plot_df, x=x_col, y=y_option)
+
+            st.plotly_chart(fig, width="stretch")
+
+        elif chart_type == "Line Chart":
+            if not numeric_cols:
+                st.warning("Y축으로 사용할 수치형 변수가 없습니다.")
+            else:
+                x_col = st.selectbox("X축 변수", all_cols, key="line_x")
+                y_col = st.selectbox("Y축 변수", numeric_cols, key="line_y")
+                sort_x = st.checkbox("X축 기준 정렬", value=True)
+                plot_df = df[[x_col, y_col]].dropna().copy()
+
+                if sort_x:
+                    try:
+                        plot_df = plot_df.sort_values(x_col)
+                    except Exception:
+                        pass
+
+                fig = px.line(plot_df, x=x_col, y=y_col)
+                st.plotly_chart(fig, width="stretch")
+
+    with tab4:
+        numeric_df = df.select_dtypes(include=np.number)
+
+        if numeric_df.shape[1] < 2:
+            st.warning("상관관계 분석에는 수치형 변수가 2개 이상 필요합니다.")
+        else:
+            method = st.selectbox(
+                "상관계수",
+                ["pearson", "spearman", "kendall"],
+            )
+            corr = numeric_df.corr(method=method)
+
+            fig = px.imshow(
+                corr,
+                text_auto=".2f",
+                aspect="auto",
+                title=f"Correlation Heatmap ({method})",
+            )
+            st.plotly_chart(fig, width="stretch")
+
+            st.dataframe(corr.round(3), width="stretch")
+
+
+# =========================================================
+# 5. 데이터 전처리
+# =========================================================
+elif page == "3. 데이터 전처리":
+    render_page_header("03", "데이터 전처리", "결측치·이상치·인코딩·변수 선택·데이터 분할과 오버샘플링을 설정합니다.")
+
+    df = get_current_df()
+
+    if df is None:
+        st.warning("먼저 데이터를 업로드하세요.")
+        st.stop()
+
+    st.subheader("Target 변수 설정")
+    target_default_idx = 0
+    if st.session_state.target_col in df.columns:
+        target_default_idx = df.columns.tolist().index(st.session_state.target_col)
+
+    target_col = st.selectbox(
+        "종속변수(Target)를 선택하세요.",
+        df.columns.tolist(),
+        index=target_default_idx,
+    )
+    st.session_state.target_col = target_col
+
+    if st.button("원본 업로드 데이터로 전처리 초기화"):
+        st.session_state.working_df = st.session_state.raw_df.copy()
+        st.session_state.encoding_maps = {}
+        st.session_state.preprocessing_log = []
+        st.session_state.feature_selection_info = None
+        reset_downstream()
+        st.success("전처리 내용을 초기화했습니다.")
+        st.rerun()
+
+    tab_missing, tab_outlier, tab_encoding, tab_fs, tab_partition = st.tabs(
+        [
+            "결측치 처리",
+            "이상치 처리",
+            "인코딩",
+            "Feature Selection",
+            "데이터 분할 · 오버샘플링",
+        ]
+    )
+
+    # -----------------------------
+    # 결측치
+    # -----------------------------
+    with tab_missing:
+        df = get_current_df()
+
+        missing_df = pd.DataFrame(
+            {
+                "변수": df.columns,
+                "결측치 수": df.isna().sum().values,
+                "결측치 비율(%)": (df.isna().mean().values * 100).round(2),
+            }
+        )
+        missing_df = missing_df[missing_df["결측치 수"] > 0]
+
+        if missing_df.empty:
+            st.success("현재 결측치가 없습니다.")
+        else:
+            st.dataframe(missing_df, width="stretch")
+
+            missing_cols = missing_df["변수"].tolist()
+            selected_cols = st.multiselect(
+                "처리할 변수",
+                missing_cols,
+                default=missing_cols,
+            )
+
+            method = st.selectbox(
+                "결측치 처리 방법",
+                [
+                    "행 삭제",
+                    "열 삭제",
+                    "자동 대체 (수치형=Median / 범주형=Mode)",
+                    "Mean 대체",
+                    "Median 대체",
+                    "Mode 대체",
+                    "사용자 지정 값",
+                ],
+            )
+
+            fill_value = None
+            if method == "사용자 지정 값":
+                fill_value = st.text_input("대체 값", value="0")
+
+            if st.button("결측치 처리 적용", key="apply_missing"):
+                if not selected_cols:
+                    st.warning("처리할 변수를 선택하세요.")
+                else:
+                    new_df = df.copy()
+
+                    try:
+                        if method == "행 삭제":
+                            new_df = new_df.dropna(subset=selected_cols)
+
+                        elif method == "열 삭제":
+                            if target_col in selected_cols:
+                                st.error("Target 변수는 삭제할 수 없습니다.")
+                                st.stop()
+                            new_df = new_df.drop(columns=selected_cols)
+
+                        elif method == "자동 대체 (수치형=Median / 범주형=Mode)":
+                            for col in selected_cols:
+                                if pd.api.types.is_numeric_dtype(new_df[col]):
+                                    new_df[col] = new_df[col].fillna(new_df[col].median())
+                                else:
+                                    mode = new_df[col].mode(dropna=True)
+                                    if not mode.empty:
+                                        new_df[col] = new_df[col].fillna(mode.iloc[0])
+
+                        elif method == "Mean 대체":
+                            for col in selected_cols:
+                                if pd.api.types.is_numeric_dtype(new_df[col]):
+                                    new_df[col] = new_df[col].fillna(new_df[col].mean())
+                                else:
+                                    st.warning(f"{col}: 수치형이 아니므로 건너뜁니다.")
+
+                        elif method == "Median 대체":
+                            for col in selected_cols:
+                                if pd.api.types.is_numeric_dtype(new_df[col]):
+                                    new_df[col] = new_df[col].fillna(new_df[col].median())
+                                else:
+                                    st.warning(f"{col}: 수치형이 아니므로 건너뜁니다.")
+
+                        elif method == "Mode 대체":
+                            for col in selected_cols:
+                                mode = new_df[col].mode(dropna=True)
+                                if not mode.empty:
+                                    new_df[col] = new_df[col].fillna(mode.iloc[0])
+
+                        elif method == "사용자 지정 값":
+                            for col in selected_cols:
+                                value = fill_value
+                                if pd.api.types.is_numeric_dtype(new_df[col]):
+                                    try:
+                                        value = float(fill_value)
+                                    except Exception:
+                                        pass
+                                new_df[col] = new_df[col].fillna(value)
+
+                        update_working_df(
+                            new_df,
+                            f"결측치 처리: {method} / {selected_cols}",
+                        )
+                        st.success("결측치 처리를 적용했습니다.")
+                    except Exception as e:
+                        st.error(f"결측치 처리 중 오류: {e}")
+
+    # -----------------------------
+    # 이상치
+    # -----------------------------
+    with tab_outlier:
+        df = get_current_df()
+        numeric_cols = [
+            c
+            for c in df.select_dtypes(include=np.number).columns.tolist()
+            if c != st.session_state.target_col
+        ]
+
+        if not numeric_cols:
+            st.warning("처리 가능한 수치형 독립변수가 없습니다.")
+        else:
+            selected_cols = st.multiselect(
+                "이상치를 처리할 수치형 변수",
+                numeric_cols,
+                key="outlier_cols",
+            )
+
+            outlier_method = st.selectbox(
+                "이상치 처리 방법",
+                ["IQR 기준 행 제거", "IQR Winsorizing(Capping)", "Z-score 기준 행 제거"],
+            )
+
+            if outlier_method.startswith("IQR"):
+                iqr_k = st.slider("IQR 배수", 1.0, 3.0, 1.5, 0.1)
+            else:
+                z_threshold = st.slider("Z-score 임계값", 2.0, 5.0, 3.0, 0.1)
+
+            if st.button("이상치 처리 적용", key="apply_outlier"):
+                if not selected_cols:
+                    st.warning("처리할 변수를 선택하세요.")
+                else:
+                    new_df = df.copy()
+                    before_n = len(new_df)
+
+                    if outlier_method == "IQR 기준 행 제거":
+                        keep_mask = pd.Series(True, index=new_df.index)
+
+                        for col in selected_cols:
+                            q1 = new_df[col].quantile(0.25)
+                            q3 = new_df[col].quantile(0.75)
+                            iqr = q3 - q1
+                            low = q1 - iqr_k * iqr
+                            high = q3 + iqr_k * iqr
+                            keep_mask &= new_df[col].between(low, high) | new_df[col].isna()
+
+                        new_df = new_df.loc[keep_mask].copy()
+
+                    elif outlier_method == "IQR Winsorizing(Capping)":
+                        for col in selected_cols:
+                            q1 = new_df[col].quantile(0.25)
+                            q3 = new_df[col].quantile(0.75)
+                            iqr = q3 - q1
+                            low = q1 - iqr_k * iqr
+                            high = q3 + iqr_k * iqr
+                            new_df[col] = new_df[col].clip(low, high)
+
+                    elif outlier_method == "Z-score 기준 행 제거":
+                        keep_mask = pd.Series(True, index=new_df.index)
+
+                        for col in selected_cols:
+                            mean = new_df[col].mean()
+                            std = new_df[col].std()
+
+                            if std and not np.isnan(std):
+                                z = (new_df[col] - mean) / std
+                                keep_mask &= (z.abs() <= z_threshold) | new_df[col].isna()
+
+                        new_df = new_df.loc[keep_mask].copy()
+
+                    update_working_df(
+                        new_df,
+                        f"이상치 처리: {outlier_method} / {selected_cols}",
+                    )
+
+                    st.success(
+                        f"이상치 처리를 적용했습니다. 행 수: {before_n:,} → {len(new_df):,}"
+                    )
+
+    # -----------------------------
+    # 인코딩
+    # -----------------------------
+    with tab_encoding:
+        df = get_current_df()
+        target_col = st.session_state.target_col
+
+        categorical_cols = [
+            c
+            for c in df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+            if c != target_col
+        ]
+
+        if not categorical_cols:
+            st.success("현재 인코딩이 필요한 범주형 독립변수가 없습니다.")
+        else:
+            encode_cols = st.multiselect(
+                "인코딩할 범주형 변수",
+                categorical_cols,
+                default=categorical_cols,
+            )
+
+            encoding_method = st.selectbox(
+                "인코딩 방식",
+                ["One-Hot Encoding", "Ordinal/Label Encoding"],
+            )
+
+            drop_first = False
+            if encoding_method == "One-Hot Encoding":
+                drop_first = st.checkbox("첫 번째 더미 범주 제거(drop_first)", value=False)
+
+            if st.button("인코딩 적용", key="apply_encoding"):
+                if not encode_cols:
+                    st.warning("인코딩할 변수를 선택하세요.")
+                else:
+                    new_df = df.copy()
+
+                    if encoding_method == "One-Hot Encoding":
+                        new_df = pd.get_dummies(
+                            new_df,
+                            columns=encode_cols,
+                            drop_first=drop_first,
+                            dtype=int,
+                        )
+
+                    else:
+                        for col in encode_cols:
+                            categories = sorted(new_df[col].dropna().astype(str).unique())
+                            mapping = {cat: i for i, cat in enumerate(categories)}
+                            st.session_state.encoding_maps[col] = mapping
+
+                            new_df[col] = (
+                                new_df[col]
+                                .astype("string")
+                                .map(mapping)
+                                .astype("Float64")
+                            )
+
+                    update_working_df(
+                        new_df,
+                        f"인코딩: {encoding_method} / {encode_cols}",
+                    )
+                    st.success("인코딩을 적용했습니다.")
+
+                    if st.session_state.encoding_maps:
+                        with st.expander("Label Encoding 매핑 확인"):
+                            st.json(st.session_state.encoding_maps)
+
+    # -----------------------------
+    # Feature selection
+    # -----------------------------
+    with tab_fs:
+        df = get_current_df()
+        target_col = st.session_state.target_col
+
+        if target_col not in df.columns:
+            st.error("선택한 Target 변수가 현재 데이터에 없습니다.")
+        else:
+            feature_cols = [c for c in df.columns if c != target_col]
+
+            fs_method = st.selectbox(
+                "Feature Selection 방식",
+                ["사용자 직접 선택", "SelectKBest (Mutual Information)"],
+            )
+
+            if fs_method == "사용자 직접 선택":
+                selected_features = st.multiselect(
+                    "모델에 사용할 Feature",
+                    feature_cols,
+                    default=feature_cols,
+                )
+
+                if st.button("선택한 Feature만 유지", key="manual_fs"):
+                    if not selected_features:
+                        st.warning("최소 1개 이상의 Feature를 선택하세요.")
+                    else:
+                        new_df = df[selected_features + [target_col]].copy()
+                        st.session_state.feature_selection_info = {
+                            "method": "Manual",
+                            "features": selected_features,
+                        }
+                        update_working_df(
+                            new_df,
+                            f"Feature Selection(Manual): {selected_features}",
+                        )
+                        st.success(f"{len(selected_features)}개 Feature를 선택했습니다.")
+
+            else:
+                non_numeric = [
+                    c
+                    for c in feature_cols
+                    if not pd.api.types.is_numeric_dtype(df[c])
+                ]
+
+                if non_numeric:
+                    st.warning(
+                        "SelectKBest 전에 모든 독립변수를 수치형으로 인코딩해야 합니다. "
+                        f"현재 비수치형 변수: {non_numeric}"
+                    )
+                elif df[feature_cols].isna().any().any() or df[target_col].isna().any():
+                    st.warning("SelectKBest 전에 결측치를 처리하세요.")
+                else:
+                    max_k = len(feature_cols)
+                    k = st.slider(
+                        "선택할 Feature 수(k)",
+                        1,
+                        max_k,
+                        min(10, max_k),
+                    )
+
+                    if st.button("SelectKBest 실행", key="kbest_fs"):
+                        y_temp = pd.factorize(df[target_col])[0]
+                        selector = SelectKBest(
+                            score_func=mutual_info_classif,
+                            k=k,
+                        )
+                        selector.fit(df[feature_cols], y_temp)
+                        selected_features = np.array(feature_cols)[selector.get_support()].tolist()
+
+                        score_df = pd.DataFrame(
+                            {
+                                "Feature": feature_cols,
+                                "MI Score": selector.scores_,
+                                "Selected": selector.get_support(),
+                            }
+                        ).sort_values("MI Score", ascending=False)
+
+                        st.session_state.feature_selection_info = {
+                            "method": "SelectKBest-MI",
+                            "features": selected_features,
+                            "scores": score_df,
+                        }
+
+                        new_df = df[selected_features + [target_col]].copy()
+                        update_working_df(
+                            new_df,
+                            f"Feature Selection(SelectKBest-MI, k={k}): {selected_features}",
+                        )
+
+                        st.success(f"{k}개 Feature를 선택했습니다.")
+                        st.dataframe(score_df, width="stretch")
+
+    # -----------------------------
+    # Data Partitioning / Oversampling
+    # -----------------------------
+    with tab_partition:
+        df = get_current_df()
+        target_col = st.session_state.target_col
+
+        st.markdown("### Train / Validation / Test 분할")
+
+        if target_col not in df.columns:
+            st.error("Target 변수를 다시 설정하세요.")
+        else:
+            X = df.drop(columns=[target_col])
+            y_raw = df[target_col]
+
+            non_numeric = [
+                c for c in X.columns if not pd.api.types.is_numeric_dtype(X[c])
+            ]
+            has_missing = X.isna().any().any() or y_raw.isna().any()
+
+            if non_numeric:
+                st.warning(
+                    "Data Partitioning 전에 범주형 독립변수를 인코딩해야 합니다. "
+                    f"비수치형 변수: {non_numeric}"
+                )
+
+            if has_missing:
+                st.warning("Data Partitioning 전에 결측치를 처리하세요.")
+
+            unique_target = list(pd.Series(y_raw.dropna().unique()).tolist())
+
+            if len(unique_target) != 2:
+                st.warning(
+                    "현재 코드는 이진 개인신용평가 모델을 기준으로 합니다. "
+                    f"Target의 고유값이 {len(unique_target)}개입니다: {unique_target}"
+                )
+            else:
+                positive_class = st.selectbox(
+                    "Positive class (부실/연체 등 1로 평가할 클래스)",
+                    unique_target,
+                    index=1 if len(unique_target) > 1 else 0,
+                )
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    test_ratio = st.slider(
+                        "Test 비율",
+                        0.05,
+                        0.40,
+                        0.20,
+                        0.05,
+                    )
+                with c2:
+                    val_ratio = st.slider(
+                        "Validation 비율",
+                        0.05,
+                        0.40,
+                        0.20,
+                        0.05,
+                    )
+
+                train_ratio = 1.0 - test_ratio - val_ratio
+                st.info(
+                    f"Train {train_ratio:.0%} / Validation {val_ratio:.0%} / Test {test_ratio:.0%}"
+                )
+
+                stratify = st.checkbox("Target 비율을 유지하여 층화 분할", value=True)
+
+                if st.button("Data Partitioning 실행", key="partition"):
+                    if non_numeric:
+                        st.error("먼저 모든 독립변수를 수치형으로 인코딩하세요.")
+                    elif has_missing:
+                        st.error("먼저 결측치를 처리하세요.")
+                    elif train_ratio <= 0:
+                        st.error("Train 비율이 0보다 커야 합니다.")
+                    else:
+                        y = (y_raw == positive_class).astype(int)
+
+                        stratify_y = y if stratify else None
+                        temp_ratio = val_ratio + test_ratio
+
+                        try:
+                            X_train, X_temp, y_train, y_temp = train_test_split(
+                                X,
+                                y,
+                                test_size=temp_ratio,
+                                random_state=RANDOM_STATE,
+                                stratify=stratify_y,
+                            )
+
+                            test_fraction_of_temp = test_ratio / temp_ratio
+                            stratify_temp = y_temp if stratify else None
+
+                            X_val, X_test, y_val, y_test = train_test_split(
+                                X_temp,
+                                y_temp,
+                                test_size=test_fraction_of_temp,
+                                random_state=RANDOM_STATE,
+                                stratify=stratify_temp,
+                            )
+
+                            st.session_state.splits = {
+                                "X_train": X_train.reset_index(drop=True),
+                                "y_train": y_train.reset_index(drop=True),
+                                "X_val": X_val.reset_index(drop=True),
+                                "y_val": y_val.reset_index(drop=True),
+                                "X_test": X_test.reset_index(drop=True),
+                                "y_test": y_test.reset_index(drop=True),
+                                "target_col": target_col,
+                                "positive_class": positive_class,
+                                "feature_names": X.columns.tolist(),
+                                "ratios": {
+                                    "train": train_ratio,
+                                    "validation": val_ratio,
+                                    "test": test_ratio,
+                                },
+                            }
+                            st.session_state.resampled = None
+                            st.session_state.model_results = {}
+
+                            st.success("Train / Validation / Test 분할을 완료했습니다.")
+                        except Exception as e:
+                            st.error(
+                                "분할 중 오류가 발생했습니다. 각 클래스의 데이터 수가 너무 적은지 확인하세요. "
+                                f"\n\n오류: {e}"
+                            )
+
+                if st.session_state.splits is not None:
+                    splits = st.session_state.splits
+
+                    c1, c2, c3 = st.columns(3)
+
+                    with c1:
+                        st.write("**Train**")
+                        st.dataframe(
+                            class_count_table(splits["y_train"]),
+                            width="stretch",
+                            hide_index=True,
+                        )
+                    with c2:
+                        st.write("**Validation**")
+                        st.dataframe(
+                            class_count_table(splits["y_val"]),
+                            width="stretch",
+                            hide_index=True,
+                        )
+                    with c3:
+                        st.write("**Test**")
+                        st.dataframe(
+                            class_count_table(splits["y_test"]),
+                            width="stretch",
+                            hide_index=True,
+                        )
+
+                    st.divider()
+                    st.markdown("### 오버샘플링")
+                    st.warning(
+                        "오버샘플링은 Train set에만 적용합니다. "
+                        "Validation/Test set은 원래 분포를 유지합니다."
+                    )
+
+                    oversampling_method = st.selectbox(
+                        "오버샘플링 방법",
+                        ["사용 안 함", "SMOTE", "CTGAN", "Generative AI (OpenAI API)"],
+                    )
+
+                    if oversampling_method == "사용 안 함":
+                        if st.session_state.resampled is not None:
+                            st.session_state.resampled = None
+                            st.session_state.model_results = {}
+                        st.success(
+                            "오버샘플링을 적용하지 않습니다. 원본 Train set으로 바로 모델 학습이 가능합니다."
+                        )
+
+                    elif oversampling_method == "SMOTE":
+                        y_train = splits["y_train"]
+                        counts = y_train.value_counts()
+                        current_ratio = counts.min() / counts.max()
+
+                        target_ratio, pair_matching_requested = oversampling_ratio_control(
+                            "smote", current_ratio, counts
+                        )
+
+                        max_k = max(1, min(10, int(counts.min()) - 1))
+                        k_neighbors = st.slider(
+                            "SMOTE k_neighbors",
+                            1,
+                            max_k,
+                            min(5, max_k),
+                        )
+
+                        if st.button("SMOTE 적용", key="run_smote"):
+                            if counts.min() < 2:
+                                st.error("SMOTE를 적용하려면 Minority class가 최소 2개 이상 필요합니다.")
+                            elif target_ratio <= current_ratio:
+                                st.error(
+                                    f"목표 비율은 현재 비율({current_ratio:.3f})보다 커야 합니다."
+                                )
+                            else:
+                                try:
+                                    smote = SMOTE(
+                                        sampling_strategy=target_ratio,
+                                        random_state=RANDOM_STATE,
+                                        k_neighbors=k_neighbors,
+                                    )
+
+                                    X_res, y_res = smote.fit_resample(
+                                        splits["X_train"],
+                                        splits["y_train"],
+                                    )
+
+                                    X_res = pd.DataFrame(
+                                        X_res,
+                                        columns=splits["feature_names"],
+                                    )
+                                    y_res = pd.Series(y_res, name=target_col)
+
+                                    n_synthetic = len(X_res) - len(splits["X_train"])
+
+                                    st.session_state.resampled = {
+                                        "X_train": X_res,
+                                        "y_train": y_res,
+                                        "method": f"SMOTE (ratio={target_ratio:.2f})",
+                                        "synthetic_rows": n_synthetic,
+                                        "pair_matching_requested": pair_matching_requested,
+                                        "target_ratio": float(target_ratio),
+                                    }
+                                    st.session_state.model_results = {}
+
+                                    st.success(
+                                        f"SMOTE 완료: 합성 데이터 {n_synthetic:,}행 추가"
+                                    )
+                                except Exception as e:
+                                    st.error(f"SMOTE 적용 중 오류: {e}")
+
+                    elif oversampling_method == "CTGAN":
+                        y_train = splits["y_train"]
+                        counts = y_train.value_counts()
+                        minority_label = counts.idxmin()
+                        majority_label = counts.idxmax()
+                        current_ratio = counts.min() / counts.max()
+
+                        target_ratio, pair_matching_requested = oversampling_ratio_control(
+                            "ctgan_external", current_ratio, counts
+                        )
+
+                        majority_n = int(counts.max())
+                        minority_n = int(counts.min())
+                        target_minority_n = int(np.ceil(majority_n * target_ratio))
+                        n_to_generate = max(0, target_minority_n - minority_n)
+
+                        st.info(
+                            "CTGAN은 Streamlit Community Cloud의 메모리 제한을 고려해 앱 내부에서 직접 학습하지 않습니다. "
+                            "현재 Train의 Minority 데이터를 내려받아 Colab·로컬 PC 등에서 CTGAN 합성 데이터를 생성한 뒤 "
+                            "CSV로 다시 업로드하면, 이 앱이 Train과 결합하고 목표 클래스 비율을 자동으로 확인합니다."
+                        )
+
+                        m1, m2, m3, m4 = st.columns(4)
+                        m1.metric("Majority", f"{majority_n:,}행")
+                        m2.metric("현재 Minority", f"{minority_n:,}행")
+                        m3.metric("목표 Minority", f"{target_minority_n:,}행")
+                        m4.metric("필요 CTGAN 합성", f"{n_to_generate:,}행")
+
+                        real_minority = (
+                            splits["X_train"]
+                            .loc[y_train == minority_label]
+                            .reset_index(drop=True)
+                            .copy()
+                        )
+
+                        st.markdown("#### 1. CTGAN 학습용 Minority 데이터 다운로드")
+                        st.caption(
+                            f"아래 파일은 Train set의 Minority class({minority_label}) {minority_n:,}행만 포함합니다. "
+                            "모든 행이 동일한 Minority class이므로 Target 변수는 제외되어 있습니다. "
+                            "Validation/Test 데이터는 포함되지 않습니다."
+                        )
+                        st.download_button(
+                            "CTGAN 학습용 Minority Train CSV 다운로드",
+                            data=real_minority.to_csv(index=False).encode("utf-8-sig"),
+                            file_name="ctgan_minority_train.csv",
+                            mime="text/csv",
+                            key="download_ctgan_minority_train",
+                        )
+
+                        with st.expander("외부 CTGAN 생성 절차"):
+                            st.markdown(
+                                f"""
+                                1. 위의 **`ctgan_minority_train.csv`** 파일을 다운로드합니다.
+                                2. Google Colab 또는 로컬 PC에서 이 파일만 사용해 CTGAN을 학습합니다.
+                                3. 합성 데이터는 **최소 {n_to_generate:,}행** 생성합니다.
+                                4. 생성된 CSV의 변수명은 다운로드한 파일과 동일하게 유지합니다.
+                                5. 아래 업로더에 합성 CSV를 넣고 **CTGAN 합성 데이터 적용**을 누릅니다.
+
+                                연구 비교의 공정성을 위해 CTGAN 학습에는 **Train의 Minority 데이터만 사용**하며, Validation/Test는 원래 분포 그대로 유지합니다.
+                                """
+                            )
+
+                        st.markdown("#### 2. CTGAN 합성 CSV 업로드")
+                        ctgan_upload = st.file_uploader(
+                            "외부에서 생성한 CTGAN 합성 데이터 CSV",
+                            type=["csv"],
+                            key="ctgan_synthetic_upload",
+                            help=(
+                                "다운로드한 Minority Train CSV와 동일한 feature 열을 가진 합성 CSV를 업로드하세요. "
+                                "Target 열이 포함되어 있어도 자동으로 제외합니다."
+                            ),
+                        )
+
+                        if n_to_generate <= 0:
+                            st.success(
+                                "현재 Train set이 이미 선택한 목표 비율을 만족하므로 추가 CTGAN 합성 데이터가 필요하지 않습니다."
+                            )
+
+                        if ctgan_upload is not None:
+                            try:
+                                uploaded_ctgan = pd.read_csv(ctgan_upload)
+                                uploaded_ctgan.columns = [str(c).strip() for c in uploaded_ctgan.columns]
+
+                                # 사용자가 Target 열까지 함께 업로드한 경우 자동 제외합니다.
+                                if target_col in uploaded_ctgan.columns:
+                                    uploaded_ctgan = uploaded_ctgan.drop(columns=[target_col])
+                                    st.caption(f"업로드 파일의 Target 열 `{target_col}`은 자동으로 제외했습니다.")
+
+                                required_cols = list(splits["feature_names"])
+                                missing_cols = [c for c in required_cols if c not in uploaded_ctgan.columns]
+                                extra_cols = [c for c in uploaded_ctgan.columns if c not in required_cols]
+
+                                u1, u2, u3 = st.columns(3)
+                                u1.metric("업로드 행 수", f"{len(uploaded_ctgan):,}행")
+                                u2.metric("필요 행 수", f"{n_to_generate:,}행")
+                                u3.metric(
+                                    "열 검사",
+                                    "정상" if not missing_cols else f"누락 {len(missing_cols)}개",
+                                )
+
+                                if missing_cols:
+                                    st.error(
+                                        "필수 feature 열이 누락되어 있습니다: "
+                                        + ", ".join(map(str, missing_cols[:20]))
+                                        + (" ..." if len(missing_cols) > 20 else "")
+                                    )
+                                else:
+                                    if extra_cols:
+                                        st.warning(
+                                            "학습에 사용하지 않는 추가 열은 자동으로 제외합니다: "
+                                            + ", ".join(map(str, extra_cols[:20]))
+                                            + (" ..." if len(extra_cols) > 20 else "")
+                                        )
+
+                                    uploaded_ctgan = uploaded_ctgan[required_cols].copy()
+
+                                    # 전처리 완료 후 모델 학습용 feature는 수치형이어야 하므로 안전하게 변환합니다.
+                                    numeric_errors = []
+                                    for col in required_cols:
+                                        converted = pd.to_numeric(uploaded_ctgan[col], errors="coerce")
+                                        if converted.isna().sum() > uploaded_ctgan[col].isna().sum():
+                                            numeric_errors.append(col)
+                                        uploaded_ctgan[col] = converted
+
+                                    if numeric_errors:
+                                        st.error(
+                                            "다음 열에 숫자로 변환할 수 없는 값이 있습니다: "
+                                            + ", ".join(map(str, numeric_errors[:20]))
+                                            + (" ..." if len(numeric_errors) > 20 else "")
+                                        )
+                                    elif uploaded_ctgan.isna().any().any():
+                                        nan_cols = uploaded_ctgan.columns[
+                                            uploaded_ctgan.isna().any()
+                                        ].tolist()
+                                        st.error(
+                                            "CTGAN 합성 CSV에 결측치가 있습니다. 다음 열을 확인하세요: "
+                                            + ", ".join(map(str, nan_cols[:20]))
+                                            + (" ..." if len(nan_cols) > 20 else "")
+                                        )
+                                    else:
+                                        if len(uploaded_ctgan) < n_to_generate:
+                                            st.warning(
+                                                f"현재 업로드된 합성 데이터는 {len(uploaded_ctgan):,}행으로, "
+                                                f"목표 비율을 맞추려면 {n_to_generate:,}행이 필요합니다. "
+                                                f"{n_to_generate - len(uploaded_ctgan):,}행을 추가 생성한 뒤 다시 업로드하세요."
+                                            )
+                                        elif len(uploaded_ctgan) > n_to_generate and n_to_generate > 0:
+                                            st.info(
+                                                f"필요한 합성 데이터는 {n_to_generate:,}행입니다. "
+                                                f"업로드된 {len(uploaded_ctgan):,}행 중 필요한 수만 무작위로 선택해 사용합니다."
+                                            )
+                                        elif len(uploaded_ctgan) == n_to_generate:
+                                            st.success("업로드된 합성 데이터 행 수가 목표 행 수와 정확히 일치합니다.")
+
+                                        with st.expander("업로드한 CTGAN 합성 데이터 미리보기"):
+                                            st.dataframe(uploaded_ctgan.head(100), width="stretch")
+
+                                        can_apply_ctgan = (
+                                            n_to_generate > 0
+                                            and len(uploaded_ctgan) >= n_to_generate
+                                        )
+
+                                        if st.button(
+                                            "CTGAN 합성 데이터 적용",
+                                            key="apply_external_ctgan",
+                                            disabled=not can_apply_ctgan,
+                                        ):
+                                            synthetic_X = uploaded_ctgan.sample(
+                                                n=n_to_generate,
+                                                random_state=RANDOM_STATE,
+                                            ).reset_index(drop=True)
+
+                                            synthetic_X = snap_synthetic_to_training_domain(
+                                                synthetic_X,
+                                                real_minority,
+                                            )
+
+                                            X_res = pd.concat(
+                                                [splits["X_train"].reset_index(drop=True), synthetic_X],
+                                                ignore_index=True,
+                                            )
+                                            y_syn = pd.Series(
+                                                [minority_label] * n_to_generate,
+                                                name=target_col,
+                                            )
+                                            y_res = pd.concat(
+                                                [y_train.reset_index(drop=True), y_syn],
+                                                ignore_index=True,
+                                            )
+
+                                            X_res, y_res = shuffle(
+                                                X_res,
+                                                y_res,
+                                                random_state=RANDOM_STATE,
+                                            )
+                                            X_res = X_res.reset_index(drop=True)
+                                            y_res = y_res.reset_index(drop=True)
+
+                                            st.session_state.resampled = {
+                                                "X_train": X_res,
+                                                "y_train": y_res,
+                                                "method": f"CTGAN external CSV (ratio={target_ratio:.2f})",
+                                                "synthetic_rows": n_to_generate,
+                                                "synthetic_sample": synthetic_X.head(20),
+                                                "pair_matching_requested": pair_matching_requested,
+                                                "target_ratio": float(target_ratio),
+                                            }
+                                            st.session_state.model_results = {}
+
+                                            final_counts = y_res.value_counts()
+                                            final_minority = int(final_counts.min())
+                                            final_majority = int(final_counts.max())
+                                            final_ratio = final_minority / final_majority if final_majority else 0.0
+
+                                            st.success(
+                                                f"CTGAN 합성 데이터 적용 완료: {n_to_generate:,}행을 Train에 추가했습니다. "
+                                                f"적용 후 Minority / Majority 비율 = {final_ratio:.3f}"
+                                            )
+                                            if pair_matching_requested and final_minority == final_majority:
+                                                st.success("1:1 Pair Matching 완료")
+                                            elif pair_matching_requested:
+                                                st.error(
+                                                    f"1:1 Pair Matching이 완료되지 않았습니다. "
+                                                    f"Minority={final_minority:,}, Majority={final_majority:,}"
+                                                )
+                            except Exception as e:
+                                st.error(
+                                    "CTGAN 합성 CSV를 읽거나 적용하는 중 오류가 발생했습니다. "
+                                    f"오류 내용: {type(e).__name__}: {e}"
+                                )
+
+                    elif oversampling_method == "Generative AI (OpenAI API)":
+                        y_train = splits["y_train"]
+                        counts = y_train.value_counts()
+                        minority_label = counts.idxmin()
+                        current_ratio = counts.min() / counts.max()
+
+                        st.info(
+                            "API Key는 password 입력창으로 받고 코드/CSV에 저장하지 않습니다. "
+                            "기본 설정에서는 실제 고객 행 대신 Minority class의 통계 요약만 API로 전송합니다."
+                        )
+
+                        api_key = st.text_input(
+                            "OpenAI API Key",
+                            type="password",
+                            key="openai_api_key_input",
+                            help="이 값은 현재 Streamlit 세션에서 API 호출에만 사용합니다.",
+                        )
+
+                        model_options = list(OPENAI_MODEL_PRICING.keys())
+                        default_model = "GPT-4o mini"
+                        model_display = st.selectbox(
+                            "GPT 모델 선택",
+                            model_options,
+                            index=model_options.index(default_model),
+                            format_func=lambda name: name,
+                            key="openai_model_select",
+                        )
+                        model_info = OPENAI_MODEL_PRICING[model_display]
+                        model_name = model_info["id"]
+                        st.caption(
+                            f"{model_info['description']} · API 모델 ID: `{model_name}` · "
+                            f"Input ${model_info['input_per_million']:.2f}/1M tokens · "
+                            f"Output ${model_info['output_per_million']:.2f}/1M tokens"
+                        )
+
+                        target_ratio, pair_matching_requested = oversampling_ratio_control(
+                            "genai", current_ratio, counts
+                        )
+
+                        majority_n = int(counts.max())
+                        minority_n = int(counts.min())
+                        target_minority_n = int(np.ceil(majority_n * target_ratio))
+                        n_to_generate = max(0, target_minority_n - minority_n)
+
+                        st.metric("필요한 AI 합성 행 수", f"{n_to_generate:,}")
+
+                        batch_size = st.slider(
+                            "API 1회당 생성 행 수",
+                            5,
+                            100,
+                            25,
+                            5,
+                            key="genai_batch_size",
+                        )
+
+                        real_minority = (
+                            splits["X_train"]
+                            .loc[y_train == minority_label]
+                            .reset_index(drop=True)
+                        )
+
+                        # 직접 식별정보는 자동 탐지 후 API 전송에서 강제로 제외한다.
+                        # 사용자가 실수로 해제할 수 없도록 보호 목록과 추가 제외 목록을 분리한다.
+                        protected_identifier_cols = detect_identifier_columns(
+                            real_minority.columns.tolist()
+                        )
+                        optional_exclusion_cols = [
+                            c for c in real_minority.columns
+                            if c not in protected_identifier_cols
+                        ]
+
+                        st.markdown("#### API 개인정보 보호")
+                        if protected_identifier_cols:
+                            st.success(
+                                "다음 식별정보 변수는 자동 보호되어 OpenAI API에 절대 전송되지 않습니다: "
+                                + ", ".join(map(str, protected_identifier_cols))
+                            )
+                        else:
+                            st.info(
+                                "변수명 기준으로 자동 탐지된 직접 식별정보가 없습니다. "
+                                "실제 데이터의 의미상 식별정보가 있다면 아래 추가 제외 목록에서 선택하세요."
+                            )
+
+                        extra_excluded_cols = st.multiselect(
+                            "추가로 API 전송에서 제외할 변수",
+                            optional_exclusion_cols,
+                            default=[],
+                            key="genai_extra_excluded_cols",
+                            help=(
+                                "자동 보호된 ID·이름·주소·전화번호·이메일·주민등록번호·"
+                                "계좌번호 등은 이 목록과 관계없이 항상 제외됩니다. "
+                                "여기서는 그 외 민감하거나 외부 전송을 원하지 않는 변수만 추가 선택하세요."
+                            ),
+                        )
+
+                        excluded_cols = list(dict.fromkeys(
+                            protected_identifier_cols + extra_excluded_cols
+                        ))
+
+                        # 기본 동작: 통계정보 + 비식별 Minority 예시 10개
+                        include_samples = st.checkbox(
+                            "통계정보와 함께 Minority 실제 예시 행도 API에 제공",
+                            value=True,
+                            key="genai_include_samples",
+                            help=(
+                                "기본값은 켜짐입니다. 예시 행에는 자동 보호된 식별정보 변수가 "
+                                "포함되지 않습니다."
+                            ),
+                        )
+                        sample_rows = min(10, len(real_minority))
+                        if include_samples:
+                            max_sample_rows = max(1, min(50, len(real_minority)))
+                            sample_rows = st.slider(
+                                "API에 제공할 예시 행 수",
+                                1,
+                                max_sample_rows,
+                                min(10, max_sample_rows),
+                                key="genai_sample_rows",
+                            )
+                            st.caption(
+                                f"기본 설정: Minority 통계정보 + 비식별 예시 {sample_rows}행 · "
+                                f"API 전송 변수 {real_minority.shape[1] - len(excluded_cols)}개 · "
+                                f"보호/제외 변수 {len(excluded_cols)}개"
+                            )
+                        else:
+                            sample_rows = 0
+                            st.caption(
+                                "현재 설정: Minority 통계정보만 API에 전송하며 실제 예시 행은 보내지 않습니다."
+                            )
+
+                        if n_to_generate > 0 and len(excluded_cols) < real_minority.shape[1]:
+                            estimate = estimate_openai_generation_cost(
+                                model_id=model_name,
+                                real_minority=real_minority,
+                                n_rows=n_to_generate,
+                                batch_size=batch_size,
+                                excluded_cols=excluded_cols,
+                                include_samples=include_samples,
+                                sample_rows=sample_rows,
+                            )
+
+                            st.markdown("#### 예상 API 비용")
+                            c_cost1, c_cost2, c_cost3, c_cost4 = st.columns(4)
+                            c_cost1.metric("예상 호출 횟수", f"{estimate['calls']:,}회")
+                            c_cost2.metric("예상 Input", f"{estimate['input_tokens']:,} tokens")
+                            c_cost3.metric("예상 Output", f"{estimate['output_tokens']:,} tokens")
+                            c_cost4.metric("예상 총비용", f"${estimate['total_cost']:.4f}")
+                            st.caption(
+                                f"입력 약 ${estimate['input_cost']:.4f} + "
+                                f"출력 약 ${estimate['output_cost']:.4f}. "
+                                "이 값은 변수 수와 JSON 길이를 이용한 추정치이며 실제 API 과금액과 다를 수 있습니다."
+                            )
+                        else:
+                            estimate = None
+
+                        remove_duplicates = st.checkbox(
+                            "원본 Train과 완전히 동일한 합성행 제거",
+                            value=True,
+                            key="genai_drop_duplicates",
+                        )
+
+                        cost_ack = st.checkbox(
+                            "표시된 예상 비용은 추정치이며 실제 API 사용량에 따라 달라질 수 있음을 확인했습니다.",
+                            value=False,
+                            key="genai_cost_ack",
+                        )
+
+                        # -------------------------------------------------
+                        # GPT 생성 체크포인트 / 이어하기
+                        # -------------------------------------------------
+                        job_id, job_payload = build_genai_job_id(
+                            real_minority=real_minority,
+                            model_name=model_name,
+                            target_rows=n_to_generate,
+                            batch_size=batch_size,
+                            excluded_cols=excluded_cols,
+                            include_samples=include_samples,
+                            sample_rows=sample_rows,
+                            target_col=target_col,
+                            minority_label=minority_label,
+                        )
+
+                        uploaded_checkpoint = st.file_uploader(
+                            "저장해 둔 GPT 체크포인트 ZIP 불러오기 (선택사항)",
+                            type=["zip"],
+                            key=f"genai_checkpoint_upload_{job_id}",
+                            help=(
+                                "Streamlit 서버가 완전히 재시작되면 로컬 체크포인트가 사라질 수 있습니다. "
+                                "이전에 다운로드한 체크포인트 ZIP을 올리면 해당 지점부터 이어서 생성할 수 있습니다."
+                            ),
+                        )
+                        if uploaded_checkpoint is not None:
+                            if st.button("업로드한 체크포인트 적용", key=f"apply_checkpoint_{job_id}"):
+                                try:
+                                    imported_df, imported_meta = import_checkpoint_zip_bytes(
+                                        uploaded_checkpoint.getvalue(),
+                                        expected_job_id=job_id,
+                                        expected_columns=real_minority.columns.tolist(),
+                                    )
+                                    imported_df = snap_synthetic_to_training_domain(
+                                        imported_df,
+                                        real_minority,
+                                    ).head(n_to_generate)
+                                    imported_meta.update({
+                                        "job_payload": job_payload,
+                                        "status": "in_progress" if len(imported_df) < n_to_generate else "completed",
+                                    })
+                                    save_genai_checkpoint(job_id, imported_df, imported_meta)
+                                    st.success(
+                                        f"체크포인트를 불러왔습니다: {len(imported_df):,} / {n_to_generate:,}행"
+                                    )
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"체크포인트 불러오기 실패: {e}")
+
+                        checkpoint_state = load_genai_checkpoint(job_id)
+                        resume_available = False
+                        resume_rows = 0
+                        if checkpoint_state is not None:
+                            cp_df = checkpoint_state["synthetic_df"].head(n_to_generate)
+                            cp_meta = checkpoint_state["metadata"]
+                            resume_rows = int(len(cp_df))
+                            resume_available = 0 < resume_rows < n_to_generate
+                            cp_percent = (resume_rows / n_to_generate * 100) if n_to_generate else 100.0
+
+                            if resume_available:
+                                st.success(
+                                    f"중단된 GPT 생성 작업을 찾았습니다: "
+                                    f"{resume_rows:,} / {n_to_generate:,}행 ({cp_percent:.1f}%) 저장됨"
+                                )
+                            elif resume_rows >= n_to_generate and n_to_generate > 0:
+                                st.info(
+                                    f"완료된 체크포인트가 있습니다: {resume_rows:,}행. "
+                                    "동일 설정으로 후처리를 다시 실행할 수 있습니다."
+                                )
+
+                            cp_zip = build_checkpoint_zip_bytes(job_id, cp_df, cp_meta)
+                            cp_c1, cp_c2 = st.columns(2)
+                            with cp_c1:
+                                st.download_button(
+                                    "현재 체크포인트 ZIP 다운로드",
+                                    data=cp_zip,
+                                    file_name=f"gpt_oversampling_checkpoint_{job_id}.zip",
+                                    mime="application/zip",
+                                    key=f"download_checkpoint_{job_id}_{resume_rows}",
+                                    width="stretch",
+                                )
+                            with cp_c2:
+                                if st.button(
+                                    "현재 체크포인트 삭제",
+                                    key=f"delete_checkpoint_{job_id}",
+                                    width="stretch",
+                                ):
+                                    delete_genai_checkpoint(job_id)
+                                    st.success("체크포인트를 삭제했습니다.")
+                                    st.rerun()
+
+                        start_fresh = False
+                        if checkpoint_state is not None and resume_rows > 0:
+                            start_fresh = st.checkbox(
+                                "저장된 체크포인트를 사용하지 않고 처음부터 다시 생성",
+                                value=False,
+                                key=f"genai_start_fresh_{job_id}",
+                            )
+
+                        run_button_label = (
+                            "중단 지점부터 GPT 오버샘플링 이어서 실행"
+                            if resume_available and not start_fresh
+                            else "Generative AI 오버샘플링 실행"
+                        )
+
+                        if st.button(run_button_label, key="run_genai"):
+                            if not api_key.strip():
+                                st.error("OpenAI API Key를 입력하세요.")
+                            elif target_ratio <= current_ratio:
+                                st.error(
+                                    f"목표 비율은 현재 비율({current_ratio:.3f})보다 커야 합니다."
+                                )
+                            elif n_to_generate <= 0:
+                                st.error("현재 설정에서는 추가 생성할 Minority 데이터가 없습니다.")
+                            elif not cost_ack:
+                                st.error("API 비용 확인란을 체크하세요.")
+                            elif len(excluded_cols) == real_minority.shape[1]:
+                                st.error("식별정보 보호 및 추가 제외 설정으로 API에 전달할 변수가 남아 있지 않습니다.")
+                            else:
+                                try:
+                                    if start_fresh:
+                                        delete_genai_checkpoint(job_id)
+                                        checkpoint_state = None
+
+                                    checkpoint_state = load_genai_checkpoint(job_id)
+                                    if checkpoint_state is not None:
+                                        initial_synthetic = checkpoint_state["synthetic_df"].head(n_to_generate).copy()
+                                        initial_meta = checkpoint_state["metadata"]
+                                    else:
+                                        initial_synthetic = pd.DataFrame(columns=real_minority.columns)
+                                        initial_meta = {}
+
+                                    initial_rows = int(len(initial_synthetic))
+                                    initial_fraction = initial_rows / max(1, n_to_generate)
+                                    initial_input_tokens = int(initial_meta.get("total_input_tokens", 0) or 0)
+                                    initial_output_tokens = int(initial_meta.get("total_output_tokens", 0) or 0)
+                                    initial_batch_no = int(initial_meta.get("completed_batches", 0) or 0)
+
+                                    progress_bar = st.progress(
+                                        initial_fraction,
+                                        text=f"생성 준비 중 — {initial_rows:,} / {n_to_generate:,}행",
+                                    )
+                                    progress_status = st.empty()
+                                    progress_metrics = st.empty()
+                                    checkpoint_download_placeholder = st.empty()
+                                    started_at = time.monotonic()
+
+                                    def _format_seconds(seconds):
+                                        seconds = max(0, int(seconds))
+                                        minutes, secs = divmod(seconds, 60)
+                                        hours, minutes = divmod(minutes, 60)
+                                        if hours:
+                                            return f"{hours}시간 {minutes}분 {secs}초"
+                                        if minutes:
+                                            return f"{minutes}분 {secs}초"
+                                        return f"{secs}초"
+
+                                    def _update_generation_progress(info):
+                                        elapsed = time.monotonic() - started_at
+                                        done = int(info.get("generated_rows", 0))
+                                        target = int(info.get("target_rows", n_to_generate))
+                                        batch_no_now = int(info.get("batch_no", 0))
+                                        total_batches_now = int(info.get("estimated_batches", 0))
+                                        fraction = float(info.get("progress", 0.0))
+                                        fraction = min(1.0, max(0.0, fraction))
+                                        percent = int(round(fraction * 100))
+
+                                        newly_done = max(0, done - initial_rows)
+                                        rate = newly_done / elapsed if elapsed > 0 and newly_done > 0 else 0.0
+                                        eta_seconds = (target - done) / rate if rate > 0 else None
+                                        eta_text = _format_seconds(eta_seconds) if eta_seconds is not None else "계산 중"
+
+                                        progress_bar.progress(
+                                            fraction,
+                                            text=f"생성 진행률 {percent}% — {done:,} / {target:,}행",
+                                        )
+
+                                        stage = info.get("stage")
+                                        if stage == "requesting":
+                                            progress_status.info(
+                                                f"API 배치 {batch_no_now:,} 요청 중 "
+                                                f"(예상 총 {total_batches_now:,}회) · OpenAI 응답을 기다리고 있습니다."
+                                            )
+                                        elif stage == "completed":
+                                            progress_status.success(
+                                                f"배치 {batch_no_now:,} 완료 · 현재까지 {done:,}행 생성"
+                                            )
+                                        elif stage == "resuming":
+                                            progress_status.info(
+                                                f"저장된 체크포인트 {done:,}행부터 이어서 생성합니다."
+                                            )
+                                        else:
+                                            progress_status.info("합성 데이터 생성을 시작합니다.")
+
+                                        with progress_metrics.container():
+                                            p1, p2, p3, p4 = st.columns(4)
+                                            p1.metric("진행률", f"{percent}%")
+                                            p2.metric("생성 완료", f"{done:,} / {target:,}행")
+                                            p3.metric(
+                                                "API 배치",
+                                                f"{batch_no_now:,} / {total_batches_now:,}",
+                                            )
+                                            p4.metric(
+                                                "예상 남은 시간",
+                                                eta_text if done < target else "완료",
+                                            )
+
+                                    def _save_generation_checkpoint(synthetic_so_far, info):
+                                        checkpoint_meta = {
+                                            "job_payload": job_payload,
+                                            "status": "in_progress",
+                                            "model_display": model_display,
+                                            "model_name": model_name,
+                                            "target_rows": int(n_to_generate),
+                                            "batch_size": int(batch_size),
+                                            "target_ratio": float(target_ratio),
+                                            "target_col": str(target_col),
+                                            "minority_label": str(minority_label),
+                                            "completed_batches": int(info.get("batch_no", 0)),
+                                            "total_input_tokens": int(info.get("input_tokens", 0)),
+                                            "total_output_tokens": int(info.get("output_tokens", 0)),
+                                            "excluded_cols": list(excluded_cols),
+                                            "include_samples": bool(include_samples),
+                                            "sample_rows": int(sample_rows),
+                                        }
+                                        save_genai_checkpoint(job_id, synthetic_so_far, checkpoint_meta)
+
+                                        # 현재 생성분을 사용자가 별도로 보관할 수도 있게 매 배치 갱신
+                                        zip_bytes = build_checkpoint_zip_bytes(
+                                            job_id,
+                                            synthetic_so_far,
+                                            checkpoint_meta,
+                                        )
+                                        with checkpoint_download_placeholder.container():
+                                            st.download_button(
+                                                f"체크포인트 백업 다운로드 ({len(synthetic_so_far):,}행 저장됨)",
+                                                data=zip_bytes,
+                                                file_name=f"gpt_oversampling_checkpoint_{job_id}.zip",
+                                                mime="application/zip",
+                                                key=f"running_checkpoint_{job_id}_{len(synthetic_so_far)}",
+                                                width="stretch",
+                                            )
+
+                                    synthetic_X, actual_usage = generate_openai_synthetic_rows(
+                                        api_key=api_key.strip(),
+                                        model_name=model_name,
+                                        real_minority=real_minority,
+                                        n_rows=n_to_generate,
+                                        batch_size=batch_size,
+                                        excluded_cols=excluded_cols,
+                                        include_samples=include_samples,
+                                        sample_rows=sample_rows,
+                                        progress_callback=_update_generation_progress,
+                                        checkpoint_callback=_save_generation_checkpoint,
+                                        resume_df=initial_synthetic,
+                                        initial_input_tokens=initial_input_tokens,
+                                        initial_output_tokens=initial_output_tokens,
+                                        initial_batch_no=initial_batch_no,
+                                    )
+
+                                    completed_meta = {
+                                        "job_payload": job_payload,
+                                        "status": "completed",
+                                        "model_display": model_display,
+                                        "model_name": model_name,
+                                        "target_rows": int(n_to_generate),
+                                        "batch_size": int(batch_size),
+                                        "target_ratio": float(target_ratio),
+                                        "target_col": str(target_col),
+                                        "minority_label": str(minority_label),
+                                        "completed_batches": int(actual_usage.get("completed_batches", initial_batch_no)),
+                                        "total_input_tokens": int(actual_usage.get("input_tokens", 0)),
+                                        "total_output_tokens": int(actual_usage.get("output_tokens", 0)),
+                                        "excluded_cols": list(excluded_cols),
+                                        "include_samples": bool(include_samples),
+                                        "sample_rows": int(sample_rows),
+                                    }
+                                    save_genai_checkpoint(job_id, synthetic_X, completed_meta)
+
+                                    progress_bar.progress(
+                                        1.0,
+                                        text=f"생성 완료 — {n_to_generate:,} / {n_to_generate:,}행",
+                                    )
+                                    progress_status.success(
+                                        f"GPT 합성 데이터 생성이 완료되었습니다. 총 소요 시간: "
+                                        f"{_format_seconds(time.monotonic() - started_at)}"
+                                    )
+
+                                    if remove_duplicates:
+                                        real_hashable = splits["X_train"].astype(str)
+                                        syn_hashable = synthetic_X.astype(str)
+                                        real_keys = set(map(tuple, real_hashable.to_numpy()))
+                                        keep = [tuple(row) not in real_keys for row in syn_hashable.to_numpy()]
+                                        synthetic_X = synthetic_X.loc[keep].reset_index(drop=True)
+
+                                    if synthetic_X.empty:
+                                        raise ValueError("검증 후 남은 합성 데이터가 없습니다.")
+
+                                    X_res = pd.concat(
+                                        [splits["X_train"], synthetic_X],
+                                        ignore_index=True,
+                                    )
+                                    y_syn = pd.Series(
+                                        [minority_label] * len(synthetic_X),
+                                        name=target_col,
+                                    )
+                                    y_res = pd.concat(
+                                        [y_train.reset_index(drop=True), y_syn],
+                                        ignore_index=True,
+                                    )
+
+                                    X_res, y_res = shuffle(
+                                        X_res,
+                                        y_res,
+                                        random_state=RANDOM_STATE,
+                                    )
+                                    X_res = X_res.reset_index(drop=True)
+                                    y_res = y_res.reset_index(drop=True)
+
+                                    st.session_state.resampled = {
+                                        "X_train": X_res,
+                                        "y_train": y_res,
+                                        "method": f"Generative AI/OpenAI ({model_display}, ratio={target_ratio:.2f})",
+                                        "synthetic_rows": len(synthetic_X),
+                                        "synthetic_sample": synthetic_X.head(20),
+                                        "openai_model": model_name,
+                                        "estimated_cost": estimate,
+                                        "actual_usage": actual_usage,
+                                        "pair_matching_requested": pair_matching_requested,
+                                        "target_ratio": float(target_ratio),
+                                    }
+                                    st.session_state.model_results = {}
+
+                                    st.success(
+                                        f"Generative AI 오버샘플링 완료: 합성 데이터 {len(synthetic_X):,}행 추가"
+                                    )
+                                    if actual_usage["input_tokens"] + actual_usage["output_tokens"] > 0:
+                                        st.info(
+                                            f"이번 실행 API 사용량: Input {actual_usage['input_tokens']:,} tokens / "
+                                            f"Output {actual_usage['output_tokens']:,} tokens / "
+                                            f"계산상 비용 약 ${actual_usage['total_cost']:.4f}"
+                                        )
+                                except ImportError:
+                                    st.error(
+                                        "OpenAI Python SDK가 설치되어 있지 않습니다. "
+                                        "requirements.txt에 `openai`를 포함했는지 확인하세요."
+                                    )
+                                except Exception as e:
+                                    saved_state = load_genai_checkpoint(job_id)
+                                    if saved_state is not None and len(saved_state["synthetic_df"]) > 0:
+                                        saved_n = len(saved_state["synthetic_df"])
+                                        st.error(
+                                            f"Generative AI 오버샘플링 중 오류: {e}\n\n"
+                                            f"체크포인트에 {saved_n:,}행까지 저장되어 있습니다. "
+                                            "같은 설정으로 다시 실행하면 저장된 지점부터 이어집니다."
+                                        )
+                                    else:
+                                        st.error(f"Generative AI 오버샘플링 중 오류: {e}")
+
+                    if st.session_state.resampled is not None:
+                        rs = st.session_state.resampled
+
+                        st.divider()
+                        st.markdown("### 오버샘플링 후 데이터 분포")
+                        st.write(f"**현재 Train 데이터:** {rs['method']}")
+
+                        before_dist = class_distribution_table(
+                            splits["y_train"], "오버샘플링 전"
+                        )
+                        after_dist = class_distribution_table(
+                            rs["y_train"], "오버샘플링 후"
+                        )
+                        distribution_df = pd.concat(
+                            [before_dist, after_dist], ignore_index=True
+                        )
+
+                        before_status = pair_matching_status(splits["y_train"])
+                        after_status = pair_matching_status(rs["y_train"])
+                        target_name = splits.get("target_col", st.session_state.target_col)
+                        positive_class = splits.get("positive_class", None)
+
+                        m1, m2, m3, m4 = st.columns(4)
+                        m1.metric("종속변수", str(target_name))
+                        m2.metric(
+                            "Positive class (1)",
+                            str(positive_class) if positive_class is not None else "1",
+                        )
+                        m3.metric(
+                            "오버샘플링 후 비율",
+                            f"{after_status['ratio']:.3f}"
+                            if pd.notna(after_status["ratio"])
+                            else "N/A",
+                            help="Minority / Majority 비율입니다. 1.000일 때만 정확한 1:1 Pair Matching입니다.",
+                        )
+                        m4.metric(
+                            "Pair Matching",
+                            "완료 (1:1)" if after_status["is_matched"] else "미완료",
+                        )
+
+                        pair_matching_requested = bool(rs.get("pair_matching_requested", False))
+
+                        if not after_status["is_binary"]:
+                            st.warning(
+                                "선택한 종속변수가 현재 이진 클래스가 아니므로 "
+                                "1:1 Pair Matching 여부를 판정할 수 없습니다."
+                            )
+                        elif after_status["is_matched"]:
+                            st.success(
+                                f"Pair Matching 완료: 종속변수 `{target_name}`의 두 클래스가 "
+                                f"각각 {after_status['majority']:,}행으로 정확히 1:1입니다."
+                            )
+                        elif pair_matching_requested:
+                            st.error(
+                                f"1:1 Pair Matching을 요청했지만 최종 분포가 일치하지 않습니다. "
+                                f"Minority {after_status['minority']:,}행 / Majority {after_status['majority']:,}행 · "
+                                f"{after_status['difference']:,}행 차이입니다. "
+                                "이 경우 오버샘플링 결과를 모델 학습에 사용하기 전에 다시 실행하거나 생성 결과를 확인하세요."
+                            )
+                        else:
+                            st.info(
+                                f"수동 비율 오버샘플링 결과입니다. Minority {after_status['minority']:,}행 / "
+                                f"Majority {after_status['majority']:,}행 · 현재 비율 {after_status['ratio']:.3f}:1입니다. "
+                                "1:1이 필요하면 위의 '1:1 Pair Matching으로 맞추기'를 선택하세요."
+                            )
+
+                        c1, c2 = st.columns(2)
+
+                        with c1:
+                            st.write("**오버샘플링 전 분포**")
+                            st.dataframe(
+                                before_dist[["클래스", "개수", "비율(%)"]],
+                                width="stretch",
+                                hide_index=True,
+                            )
+
+                        with c2:
+                            st.write("**오버샘플링 후 분포**")
+                            st.dataframe(
+                                after_dist[["클래스", "개수", "비율(%)"]],
+                                width="stretch",
+                                hide_index=True,
+                            )
+
+                        st.write("**종속변수 분포 비교**")
+                        fig_distribution = px.bar(
+                            distribution_df,
+                            x="클래스",
+                            y="개수",
+                            color="구분",
+                            barmode="group",
+                            text="개수",
+                            title=f"{target_name} 클래스 분포: 오버샘플링 전 vs 후",
+                        )
+                        fig_distribution.update_traces(textposition="outside")
+                        st.plotly_chart(fig_distribution, width="stretch")
+
+                        st.caption(
+                            "Pair Matching은 오버샘플링 후 두 클래스의 개수가 정확히 같은 1:1 상태인지 확인합니다. "
+                            "목표 Minority / Majority 비율을 1.00으로 설정해야 일반적으로 1:1이 됩니다."
+                        )
+
+                        with st.expander("오버샘플링 후 Train 데이터 확인"):
+                            resampled_preview = rs["X_train"].copy()
+                            resampled_preview[target_name] = rs["y_train"].to_numpy()
+                            st.dataframe(
+                                resampled_preview.head(100),
+                                width="stretch",
+                            )
+                            st.download_button(
+                                "오버샘플링 후 Train 데이터 CSV 다운로드",
+                                data=resampled_preview.to_csv(index=False).encode("utf-8-sig"),
+                                file_name="resampled_train_data.csv",
+                                mime="text/csv",
+                                key="download_resampled_train",
+                            )
+
+                        if "synthetic_sample" in rs:
+                            sample_label = (
+                                "Generative AI 합성 데이터 예시"
+                                if "Generative AI" in rs.get("method", "")
+                                else "CTGAN 합성 데이터 예시"
+                            )
+                            with st.expander(sample_label):
+                                st.dataframe(
+                                    rs["synthetic_sample"],
+                                    width="stretch",
+                                )
+
+        with st.expander("전처리 로그"):
+            if st.session_state.preprocessing_log:
+                for i, item in enumerate(st.session_state.preprocessing_log, start=1):
+                    st.write(f"{i}. {item}")
+            else:
+                st.write("아직 적용된 전처리가 없습니다.")
+
+
+# =========================================================
+# 6. 모델 학습
+# =========================================================
+elif page == "4. 모델 학습":
+    render_page_header("04", "모델 학습", "원본 또는 오버샘플링된 Train set으로 여러 분류 모델을 동일한 조건에서 학습합니다.")
+
+    if st.session_state.splits is None:
+        st.warning(
+            "먼저 데이터 전처리 페이지에서 Target 설정과 "
+            "Train / Validation / Test 분할을 완료하세요."
+        )
+        st.stop()
+
+    splits = st.session_state.splits
+
+    if st.session_state.resampled is None:
+        st.success(
+            "오버샘플링 미적용 상태입니다. 원본 Train set으로 바로 모델 학습을 진행합니다."
+        )
+    else:
+        st.info(f"현재 학습 데이터: {st.session_state.resampled['method']}")
+
+    selected_models = st.multiselect(
+        "학습할 모델 선택",
+        [
+            "Logistic Regression",
+            "Random Forest",
+            "Decision Tree",
+            "DNN",
+            "Multilayer Perceptron",
+        ],
+        default=[
+            "Logistic Regression",
+            "Random Forest",
+            "Decision Tree",
+        ],
+    )
+
+    st.subheader("하이퍼파라미터")
+
+    with st.expander("Logistic Regression"):
+        logistic_c = st.number_input(
+            "C (Inverse regularization strength)",
+            min_value=0.001,
+            max_value=1000.0,
+            value=1.0,
+            format="%.3f",
+        )
+
+    with st.expander("Random Forest"):
+        rf_n_estimators = st.slider("n_estimators", 50, 1000, 300, 50)
+        rf_max_depth = st.slider(
+            "max_depth (0=None)",
+            0,
+            50,
+            0,
+            1,
+        )
+
+    with st.expander("Decision Tree"):
+        dt_max_depth = st.slider(
+            "Decision Tree max_depth (0=None)",
+            0,
+            50,
+            5,
+            1,
+        )
+        dt_min_samples_split = st.slider(
+            "min_samples_split",
+            2,
+            50,
+            2,
+            1,
+        )
+
+    with st.expander("Multilayer Perceptron"):
+        mlp_layers_text = st.text_input(
+            "Hidden layers (쉼표 구분)",
+            value="128,64",
+        )
+        mlp_lr = st.number_input(
+            "MLP learning rate",
+            min_value=0.00001,
+            max_value=0.1,
+            value=0.001,
+            format="%.5f",
+        )
+        mlp_max_iter = st.slider(
+            "MLP max_iter",
+            100,
+            2000,
+            500,
+            100,
+        )
+
+    with st.expander("DNN"):
+        dnn_epochs = st.slider("DNN epochs", 20, 1000, 200, 20)
+        dnn_batch_size = st.selectbox(
+            "DNN batch size",
+            [16, 32, 64, 128, 256],
+            index=2,
+        )
+        dnn_lr = st.number_input(
+            "DNN learning rate",
+            min_value=0.00001,
+            max_value=0.1,
+            value=0.001,
+            format="%.5f",
+        )
+        dnn_dropout = st.slider(
+            "DNN dropout",
+            0.0,
+            0.7,
+            0.2,
+            0.05,
+        )
+
+    params = {
+        "logistic_c": logistic_c,
+        "rf_n_estimators": rf_n_estimators,
+        "rf_max_depth": rf_max_depth,
+        "dt_max_depth": dt_max_depth,
+        "dt_min_samples_split": dt_min_samples_split,
+        "mlp_layers": parse_hidden_layers(mlp_layers_text),
+        "mlp_lr": mlp_lr,
+        "mlp_max_iter": mlp_max_iter,
+        "dnn_epochs": dnn_epochs,
+        "dnn_batch_size": dnn_batch_size,
+        "dnn_lr": dnn_lr,
+        "dnn_dropout": dnn_dropout,
+    }
+
+    if st.button("선택 모델 학습", type="primary"):
+        if not selected_models:
+            st.warning("최소 1개 이상의 모델을 선택하세요.")
+        else:
+            train_and_evaluate_selected_models(selected_models, params)
+
+    if st.session_state.model_results:
+        st.subheader("학습 완료 모델")
+        result_summary = pd.DataFrame(
+            [
+                {
+                    "Model": name,
+                    "Sampling": result["sampling"],
+                    **{
+                        k: round(v, 4) if pd.notna(v) else np.nan
+                        for k, v in result["test_metrics"].items()
+                    },
+                }
+                for name, result in st.session_state.model_results.items()
+            ]
+        )
+        st.dataframe(result_summary, width="stretch", hide_index=True)
+
+
+# =========================================================
+# 7. 결과 분석
+# =========================================================
+elif page == "5. 결과 분석":
+    render_page_header("05", "결과 분석", "Test 및 Validation 성능을 비교하고 ROC-AUC와 주요 분류 지표를 확인합니다.")
+
+    results = st.session_state.model_results
+
+    if not results:
+        st.warning("먼저 모델 학습 메뉴에서 모델을 학습하세요.")
+        st.stop()
+
+    st.subheader("Test Set 성능 비교")
+
+    metrics_df = pd.DataFrame(
+        [
+            {
+                "Model": model_name,
+                "Sampling": result["sampling"],
+                **result["test_metrics"],
+            }
+            for model_name, result in results.items()
+        ]
+    )
+
+    metric_cols = ["Accuracy", "Precision", "Recall", "F1-score", "ROC-AUC"]
+    display_df = metrics_df.copy()
+    display_df[metric_cols] = display_df[metric_cols].round(4)
+
+    st.dataframe(display_df, width="stretch", hide_index=True)
+
+    st.subheader("성능 지표 시각화")
+    melted = metrics_df.melt(
+        id_vars=["Model"],
+        value_vars=metric_cols,
+        var_name="Metric",
+        value_name="Score",
+    )
+    fig_metrics = px.bar(
+        melted,
+        x="Model",
+        y="Score",
+        color="Metric",
+        barmode="group",
+        range_y=[0, 1],
+    )
+    st.plotly_chart(fig_metrics, width="stretch")
+
+    st.subheader("ROC Curve")
+
+    fig_roc = go.Figure()
+
+    for model_name, result in results.items():
+        auc_value = result["test_metrics"]["ROC-AUC"]
+        fig_roc.add_trace(
+            go.Scatter(
+                x=result["roc_fpr"],
+                y=result["roc_tpr"],
+                mode="lines",
+                name=f"{model_name} (AUC={auc_value:.3f})",
+            )
+        )
+
+    fig_roc.add_trace(
+        go.Scatter(
+            x=[0, 1],
+            y=[0, 1],
+            mode="lines",
+            name="Random baseline",
+            line=dict(dash="dash"),
+        )
+    )
+    fig_roc.update_layout(
+        xaxis_title="False Positive Rate",
+        yaxis_title="True Positive Rate",
+        xaxis=dict(range=[0, 1]),
+        yaxis=dict(range=[0, 1]),
+    )
+    st.plotly_chart(fig_roc, width="stretch")
+
+    st.subheader("Validation Set 성능")
+    val_df = pd.DataFrame(
+        [
+            {
+                "Model": model_name,
+                **result["validation_metrics"],
+            }
+            for model_name, result in results.items()
+        ]
+    )
+    val_df[metric_cols] = val_df[metric_cols].round(4)
+    st.dataframe(val_df, width="stretch", hide_index=True)
+
+    selected_model = st.selectbox(
+        "상세 결과를 확인할 모델",
+        list(results.keys()),
+    )
+    selected_result = results[selected_model]
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("Accuracy", f"{selected_result['test_metrics']['Accuracy']:.4f}")
+    c2.metric("Precision", f"{selected_result['test_metrics']['Precision']:.4f}")
+    c3.metric("Recall", f"{selected_result['test_metrics']['Recall']:.4f}")
+    c4.metric("F1-score", f"{selected_result['test_metrics']['F1-score']:.4f}")
+    c5.metric("ROC-AUC", f"{selected_result['test_metrics']['ROC-AUC']:.4f}")
+
+    st.download_button(
+        "성능 결과 CSV 다운로드",
+        data=display_df.to_csv(index=False).encode("utf-8-sig"),
+        file_name="credit_model_results.csv",
+        mime="text/csv",
+    )
+
+    st.caption(
+        "Accuracy만으로 불균형 신용데이터의 성능을 판단하지 말고 "
+        "Precision, Recall, F1-score, ROC-AUC를 함께 확인하세요."
+    )
 
