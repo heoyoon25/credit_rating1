@@ -1445,7 +1445,7 @@ st.sidebar.markdown(
     f"""
     <div class="sidebar-section-label">PROGRESS</div>
     <div style="display:flex; justify-content:space-between; font-size:0.74rem; color:#9ca3af; margin-bottom:0.3rem;">
-        <span>단계 진행률</span><span>{progress_pct}%</span>
+        <span>진행률</span><span>{progress_pct}%</span>
     </div>
     <div class="workflow-progress"><div style="width:{progress_pct}%"></div></div>
     <div style="margin-top:0.8rem;">
