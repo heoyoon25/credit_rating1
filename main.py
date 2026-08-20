@@ -41,6 +41,60 @@ st.set_page_config(
 
 RANDOM_STATE = 42
 
+# OpenAI API standard text-token pricing (USD per 1M tokens).
+# Update these values when OpenAI changes API pricing.
+OPENAI_MODEL_PRICING = {
+    "GPT-5.6 Sol": {
+        "id": "gpt-5.6-sol",
+        "input_per_million": 5.00,
+        "output_per_million": 30.00,
+        "description": "최고 성능 / 복잡한 생성 작업",
+        "tier": "고성능",
+    },
+    "GPT-5.6 Terra": {
+        "id": "gpt-5.6-terra",
+        "input_per_million": 2.00,
+        "output_per_million": 12.00,
+        "description": "성능과 비용의 균형",
+        "tier": "균형형",
+    },
+    "GPT-5.6 Luna": {
+        "id": "gpt-5.6-luna",
+        "input_per_million": 0.20,
+        "output_per_million": 1.20,
+        "description": "5.6 계열의 저비용·대량 생성용",
+        "tier": "가성비",
+    },
+    "GPT-5 mini": {
+        "id": "gpt-5-mini",
+        "input_per_million": 0.25,
+        "output_per_million": 2.00,
+        "description": "높은 품질과 낮은 비용의 절충",
+        "tier": "가성비",
+    },
+    "GPT-5 nano": {
+        "id": "gpt-5-nano",
+        "input_per_million": 0.05,
+        "output_per_million": 0.40,
+        "description": "매우 저렴한 대량 생성용",
+        "tier": "초저비용",
+    },
+    "GPT-4o mini": {
+        "id": "gpt-4o-mini",
+        "input_per_million": 0.15,
+        "output_per_million": 0.60,
+        "description": "검증된 가성비 모델 / 합성 데이터 대량 생성에 적합",
+        "tier": "가성비",
+    },
+    "GPT-4.1 mini": {
+        "id": "gpt-4.1-mini",
+        "input_per_million": 0.40,
+        "output_per_million": 1.60,
+        "description": "비추론형 고성능·저비용 모델",
+        "tier": "가성비",
+    },
+}
+
 STATE_DEFAULTS = {
     "raw_df": None,
     "working_df": None,
@@ -165,6 +219,126 @@ def build_minority_profile(df: pd.DataFrame, included_cols):
     return profile
 
 
+def get_openai_model_price(model_id):
+    for display_name, info in OPENAI_MODEL_PRICING.items():
+        if info["id"] == model_id:
+            return info
+    raise ValueError(f"가격 정보가 없는 모델입니다: {model_id}")
+
+
+def estimate_tokens_from_text(text):
+    """UI용 보수적 근사치. 실제 과금 토큰과는 차이가 날 수 있다."""
+    if not text:
+        return 0
+    return max(1, int(np.ceil(len(str(text)) / 4.0)))
+
+
+def estimate_openai_generation_cost(
+    model_id,
+    real_minority,
+    n_rows,
+    batch_size,
+    excluded_cols=None,
+    include_samples=False,
+    sample_rows=5,
+):
+    """모델 단가와 예상 input/output token을 이용한 생성 전 비용 추정."""
+    excluded_cols = excluded_cols or []
+    ai_cols = [c for c in real_minority.columns if c not in excluded_cols]
+    if not ai_cols or n_rows <= 0:
+        return {
+            "calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "input_cost": 0.0,
+            "output_cost": 0.0,
+            "total_cost": 0.0,
+        }
+
+    profile = build_minority_profile(real_minority, ai_cols)
+    prompt_payload = {
+        "task": "Generate realistic synthetic minority-class tabular credit-risk feature rows.",
+        "rules": [
+            "Generate new synthetic observations, not explanations.",
+            "Respect each feature's observed range and allowed_values when provided.",
+            "Preserve plausible dependencies and correlations among variables.",
+            "Do not copy an input row verbatim.",
+            "Return exactly the requested number of rows.",
+        ],
+        "minority_feature_profile": profile,
+    }
+    if include_samples:
+        safe_sample = real_minority[ai_cols].head(min(sample_rows, len(real_minority)))
+        prompt_payload["example_minority_rows"] = safe_sample.to_dict(orient="records")
+
+    row_properties = {c: {"type": "number"} for c in ai_cols}
+    schema = {
+        "type": "object",
+        "properties": {
+            "rows": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": row_properties,
+                    "required": ai_cols,
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["rows"],
+        "additionalProperties": False,
+    }
+
+    system_text = (
+        "You generate synthetic tabular data for an academic credit-risk "
+        "classification experiment. Follow the supplied statistical constraints "
+        "and return only data conforming to the schema."
+    )
+    base_input_text = (
+        system_text
+        + json.dumps(prompt_payload, ensure_ascii=False, default=str)
+        + json.dumps(schema, ensure_ascii=False)
+    )
+    input_tokens_per_call = estimate_tokens_from_text(base_input_text) + 30
+    calls = int(np.ceil(n_rows / max(1, int(batch_size))))
+    total_input_tokens = calls * input_tokens_per_call
+
+    # 한 행의 JSON 직렬화 길이를 사용해 출력 토큰을 근사한다.
+    prototype = {}
+    for c in ai_cols:
+        s = pd.to_numeric(real_minority[c], errors="coerce").dropna()
+        prototype[c] = float(s.median()) if not s.empty else 0.0
+    row_text = json.dumps(prototype, ensure_ascii=False)
+    output_tokens_per_row = estimate_tokens_from_text(row_text) + 2
+    total_output_tokens = int(n_rows) * output_tokens_per_row + calls * 12
+
+    price = get_openai_model_price(model_id)
+    input_cost = total_input_tokens / 1_000_000 * price["input_per_million"]
+    output_cost = total_output_tokens / 1_000_000 * price["output_per_million"]
+
+    return {
+        "calls": calls,
+        "input_tokens": int(total_input_tokens),
+        "output_tokens": int(total_output_tokens),
+        "input_cost": float(input_cost),
+        "output_cost": float(output_cost),
+        "total_cost": float(input_cost + output_cost),
+    }
+
+
+def calculate_openai_cost_from_usage(model_id, input_tokens, output_tokens):
+    price = get_openai_model_price(model_id)
+    input_cost = input_tokens / 1_000_000 * price["input_per_million"]
+    output_cost = output_tokens / 1_000_000 * price["output_per_million"]
+    return {
+        "input_tokens": int(input_tokens),
+        "output_tokens": int(output_tokens),
+        "input_cost": float(input_cost),
+        "output_cost": float(output_cost),
+        "total_cost": float(input_cost + output_cost),
+    }
+
+
 def generate_openai_synthetic_rows(
     api_key,
     model_name,
@@ -232,6 +406,8 @@ def generate_openai_synthetic_rows(
     generated_batches = []
     remaining = int(n_rows)
     batch_no = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
 
     while remaining > 0:
         batch_no += 1
@@ -265,6 +441,11 @@ def generate_openai_synthetic_rows(
             },
         )
 
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            total_input_tokens += int(getattr(usage, "input_tokens", 0) or 0)
+            total_output_tokens += int(getattr(usage, "output_tokens", 0) or 0)
+
         parsed = json.loads(response.output_text)
         rows = parsed.get("rows", [])
         if not rows:
@@ -295,7 +476,10 @@ def generate_openai_synthetic_rows(
         remaining -= min(len(batch_df), current_n)
 
     synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows))
-    return synthetic
+    usage_summary = calculate_openai_cost_from_usage(
+        model_name, total_input_tokens, total_output_tokens
+    )
+    return synthetic, usage_summary
 
 
 def parse_hidden_layers(text):
@@ -537,7 +721,7 @@ st.sidebar.write(
 st.sidebar.write(
     f"✅ 오버샘플링: {st.session_state.resampled['method']}"
     if st.session_state.resampled is not None
-    else "⬜ 오버샘플링"
+    else "➖ 오버샘플링: 사용 안 함 (선택사항)"
 )
 st.sidebar.write(
     "✅ 모델 학습" if st.session_state.model_results else "⬜ 모델 학습"
@@ -628,7 +812,7 @@ elif page == "2. 데이터 탐색":
         summary = df.describe(include="all").T
         st.dataframe(summary, use_container_width=True)
 
-        st.subheader("원자료")
+        st.subheader("총 행 수")
         max_preview = max(1, min(100, len(df)))
         n_preview = st.slider("표시할 행 수", 1, max_preview, min(20, max_preview))
         st.dataframe(df.head(n_preview), use_container_width=True)
@@ -1302,7 +1486,7 @@ elif page == "3. 데이터 전처리":
                         )
 
                     st.divider()
-                    st.markdown("### Train set 오버샘플링")
+                    st.markdown("### 오버샘플링")
                     st.warning(
                         "오버샘플링은 Train set에만 적용합니다. "
                         "Validation/Test set은 원래 분포를 유지합니다."
@@ -1314,15 +1498,12 @@ elif page == "3. 데이터 전처리":
                     )
 
                     if oversampling_method == "사용 안 함":
-                        if st.button("원본 Train set 사용", key="no_sampling"):
-                            st.session_state.resampled = {
-                                "X_train": splits["X_train"].copy(),
-                                "y_train": splits["y_train"].copy(),
-                                "method": "No oversampling",
-                                "synthetic_rows": 0,
-                            }
+                        if st.session_state.resampled is not None:
+                            st.session_state.resampled = None
                             st.session_state.model_results = {}
-                            st.success("오버샘플링 없이 원본 Train set을 사용합니다.")
+                        st.success(
+                            "오버샘플링을 적용하지 않습니다. 원본 Train set으로 바로 모델 학습이 가능합니다."
+                        )
 
                     elif oversampling_method == "SMOTE":
                         y_train = splits["y_train"]
@@ -1525,10 +1706,25 @@ elif page == "3. 데이터 전처리":
                             key="openai_api_key_input",
                             help="이 값은 현재 Streamlit 세션에서 API 호출에만 사용합니다.",
                         )
-                        model_name = st.text_input(
-                            "OpenAI 모델명",
-                            value="gpt-5.6",
-                            key="openai_model_name",
+
+                        model_options = list(OPENAI_MODEL_PRICING.keys())
+                        default_model = "GPT-4o mini"
+                        model_display = st.selectbox(
+                            "GPT 모델 선택",
+                            model_options,
+                            index=model_options.index(default_model),
+                            format_func=lambda name: (
+                                f"[{OPENAI_MODEL_PRICING[name]['tier']}] {name} — "
+                                f"{OPENAI_MODEL_PRICING[name]['description']}"
+                            ),
+                            key="openai_model_select",
+                        )
+                        model_info = OPENAI_MODEL_PRICING[model_display]
+                        model_name = model_info["id"]
+                        st.caption(
+                            f"분류: {model_info['tier']} · API 모델 ID: `{model_name}` · "
+                            f"Input ${model_info['input_per_million']:.2f}/1M tokens · "
+                            f"Output ${model_info['output_per_million']:.2f}/1M tokens"
                         )
 
                         target_ratio = st.slider(
@@ -1550,14 +1746,11 @@ elif page == "3. 데이터 전처리":
                         batch_size = st.slider(
                             "API 1회당 생성 행 수",
                             5,
-                            50,
-                            20,
+                            100,
+                            25,
                             5,
                             key="genai_batch_size",
                         )
-                        if n_to_generate > 0:
-                            estimated_calls = int(np.ceil(n_to_generate / batch_size))
-                            st.caption(f"예상 API 호출 횟수: 약 {estimated_calls:,}회")
 
                         real_minority = (
                             splits["X_train"]
@@ -1596,6 +1789,31 @@ elif page == "3. 데이터 전처리":
                                 key="genai_sample_rows",
                             )
 
+                        if n_to_generate > 0 and len(excluded_cols) < real_minority.shape[1]:
+                            estimate = estimate_openai_generation_cost(
+                                model_id=model_name,
+                                real_minority=real_minority,
+                                n_rows=n_to_generate,
+                                batch_size=batch_size,
+                                excluded_cols=excluded_cols,
+                                include_samples=include_samples,
+                                sample_rows=sample_rows,
+                            )
+
+                            st.markdown("#### 예상 API 비용")
+                            c_cost1, c_cost2, c_cost3, c_cost4 = st.columns(4)
+                            c_cost1.metric("예상 호출 횟수", f"{estimate['calls']:,}회")
+                            c_cost2.metric("예상 Input", f"{estimate['input_tokens']:,} tokens")
+                            c_cost3.metric("예상 Output", f"{estimate['output_tokens']:,} tokens")
+                            c_cost4.metric("예상 총비용", f"${estimate['total_cost']:.4f}")
+                            st.caption(
+                                f"입력 약 ${estimate['input_cost']:.4f} + "
+                                f"출력 약 ${estimate['output_cost']:.4f}. "
+                                "이 값은 변수 수와 JSON 길이를 이용한 추정치이며 실제 API 과금액과 다를 수 있습니다."
+                            )
+                        else:
+                            estimate = None
+
                         remove_duplicates = st.checkbox(
                             "원본 Train과 완전히 동일한 합성행 제거",
                             value=True,
@@ -1603,7 +1821,7 @@ elif page == "3. 데이터 전처리":
                         )
 
                         cost_ack = st.checkbox(
-                            "API 사용량에 따라 비용이 발생할 수 있음을 확인했습니다.",
+                            "표시된 예상 비용은 추정치이며 실제 API 사용량에 따라 달라질 수 있음을 확인했습니다.",
                             value=False,
                             key="genai_cost_ack",
                         )
@@ -1611,8 +1829,6 @@ elif page == "3. 데이터 전처리":
                         if st.button("Generative AI 오버샘플링 실행", key="run_genai"):
                             if not api_key.strip():
                                 st.error("OpenAI API Key를 입력하세요.")
-                            elif not model_name.strip():
-                                st.error("사용할 OpenAI 모델명을 입력하세요.")
                             elif target_ratio <= current_ratio:
                                 st.error(
                                     f"목표 비율은 현재 비율({current_ratio:.3f})보다 커야 합니다."
@@ -1620,15 +1836,15 @@ elif page == "3. 데이터 전처리":
                             elif n_to_generate <= 0:
                                 st.error("현재 설정에서는 추가 생성할 Minority 데이터가 없습니다.")
                             elif not cost_ack:
-                                st.error("API 비용 발생 가능성 확인란을 체크하세요.")
+                                st.error("API 비용 확인란을 체크하세요.")
                             elif len(excluded_cols) == real_minority.shape[1]:
                                 st.error("모든 변수를 API 전송 제외로 선택할 수는 없습니다.")
                             else:
                                 try:
                                     with st.spinner("OpenAI API로 Minority 합성 데이터를 생성 중입니다..."):
-                                        synthetic_X = generate_openai_synthetic_rows(
+                                        synthetic_X, actual_usage = generate_openai_synthetic_rows(
                                             api_key=api_key.strip(),
-                                            model_name=model_name.strip(),
+                                            model_name=model_name,
                                             real_minority=real_minority,
                                             n_rows=n_to_generate,
                                             batch_size=batch_size,
@@ -1671,15 +1887,24 @@ elif page == "3. 데이터 전처리":
                                     st.session_state.resampled = {
                                         "X_train": X_res,
                                         "y_train": y_res,
-                                        "method": f"Generative AI/OpenAI ({model_name}, ratio={target_ratio:.2f})",
+                                        "method": f"Generative AI/OpenAI ({model_display}, ratio={target_ratio:.2f})",
                                         "synthetic_rows": len(synthetic_X),
                                         "synthetic_sample": synthetic_X.head(20),
+                                        "openai_model": model_name,
+                                        "estimated_cost": estimate,
+                                        "actual_usage": actual_usage,
                                     }
                                     st.session_state.model_results = {}
 
                                     st.success(
                                         f"Generative AI 오버샘플링 완료: 합성 데이터 {len(synthetic_X):,}행 추가"
                                     )
+                                    if actual_usage["input_tokens"] + actual_usage["output_tokens"] > 0:
+                                        st.info(
+                                            f"이번 실행 API 사용량: Input {actual_usage['input_tokens']:,} tokens / "
+                                            f"Output {actual_usage['output_tokens']:,} tokens / "
+                                            f"계산상 비용 약 ${actual_usage['total_cost']:.4f}"
+                                        )
                                 except ImportError:
                                     st.error(
                                         "OpenAI Python SDK가 설치되어 있지 않습니다. "
@@ -1741,7 +1966,9 @@ elif page == "4. 모델 학습":
     splits = st.session_state.splits
 
     if st.session_state.resampled is None:
-        st.info("현재 오버샘플링이 적용되지 않았습니다. 원본 Train set으로 학습합니다.")
+        st.success(
+            "오버샘플링 미적용 상태입니다. 원본 Train set으로 바로 모델 학습을 진행합니다."
+        )
     else:
         st.info(f"현재 학습 데이터: {st.session_state.resampled['method']}")
 
@@ -1996,3 +2223,4 @@ elif page == "5. 결과 분석":
         "Accuracy만으로 불균형 신용데이터의 성능을 판단하지 말고 "
         "Precision, Recall, F1-score, ROC-AUC를 함께 확인하세요."
     )
+
