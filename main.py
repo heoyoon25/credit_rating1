@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 import streamlit as st
 
 from sklearn.ensemble import RandomForestClassifier
@@ -38,9 +39,381 @@ from imblearn.over_sampling import SMOTE
 # =========================================================
 st.set_page_config(
     page_title="개인신용평가 모델",
-    page_icon="💳",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
+)
+
+# Plotly 전역 시각 스타일
+pio.templates.default = "plotly_white"
+
+# =========================================================
+# Professional UI Theme
+# =========================================================
+st.markdown(
+    r"""
+    <style>
+    :root {
+        --app-bg: #f5f7fa;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --sidebar: #111827;
+        --sidebar-soft: #1f2937;
+        --text: #182230;
+        --muted: #667085;
+        --line: #e4e7ec;
+        --line-strong: #d0d5dd;
+        --accent: #315b78;
+        --accent-hover: #274b65;
+        --accent-soft: #edf4f8;
+        --success: #287a5b;
+        --success-soft: #edf7f2;
+        --warning: #9a6700;
+        --warning-soft: #fff8e7;
+        --danger: #b42318;
+        --danger-soft: #fff1f0;
+    }
+
+    html, body, [class*="css"] {
+        font-family: "Pretendard", "Noto Sans KR", "Segoe UI", Arial, sans-serif;
+        color: var(--text);
+    }
+
+    .stApp {
+        background: var(--app-bg);
+    }
+
+    .main .block-container {
+        max-width: 1480px;
+        padding-top: 2.1rem;
+        padding-bottom: 4rem;
+        padding-left: 2.4rem;
+        padding-right: 2.4rem;
+    }
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: var(--sidebar);
+        border-right: 1px solid rgba(255,255,255,0.06);
+    }
+
+    section[data-testid="stSidebar"] > div {
+        padding-top: 1.4rem;
+    }
+
+    section[data-testid="stSidebar"] * {
+        color: #e5e7eb;
+    }
+
+    .sidebar-brand {
+        padding: 0.35rem 0.2rem 1.25rem 0.2rem;
+        margin-bottom: 0.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.11);
+    }
+
+    .sidebar-brand .kicker {
+        font-size: 0.70rem;
+        letter-spacing: 0.16em;
+        color: #93a4b8;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }
+
+    .sidebar-brand .name {
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1.35;
+    }
+
+    .sidebar-brand .sub {
+        font-size: 0.78rem;
+        color: #9ca3af;
+        margin-top: 0.32rem;
+    }
+
+    .sidebar-section-label {
+        margin-top: 1.35rem;
+        margin-bottom: 0.55rem;
+        font-size: 0.68rem;
+        letter-spacing: 0.13em;
+        font-weight: 700;
+        color: #8d9bad !important;
+    }
+
+    section[data-testid="stSidebar"] div[role="radiogroup"] {
+        gap: 0.30rem;
+    }
+
+    section[data-testid="stSidebar"] div[role="radiogroup"] label {
+        padding: 0.55rem 0.62rem;
+        border-radius: 8px;
+        transition: background 0.15s ease;
+    }
+
+    section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
+        background: rgba(255,255,255,0.06);
+    }
+
+    .workflow-progress {
+        margin-top: 0.6rem;
+        height: 5px;
+        background: rgba(255,255,255,0.10);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .workflow-progress > div {
+        height: 100%;
+        background: #7fa6bf;
+        border-radius: inherit;
+    }
+
+    .status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.50rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        font-size: 0.79rem;
+    }
+
+    .status-row:last-child {
+        border-bottom: 0;
+    }
+
+    .status-label {
+        color: #d6dce5 !important;
+    }
+
+    .status-badge {
+        font-size: 0.67rem;
+        line-height: 1;
+        padding: 0.30rem 0.45rem;
+        border-radius: 999px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-badge.done {
+        color: #b7ead4 !important;
+        background: rgba(40,122,91,0.26);
+        border: 1px solid rgba(92,190,147,0.25);
+    }
+
+    .status-badge.wait {
+        color: #b7c1ce !important;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .status-badge.optional {
+        color: #c5d6e4 !important;
+        background: rgba(65,111,143,0.24);
+        border: 1px solid rgba(126,164,190,0.22);
+    }
+
+    /* Page headers */
+    .page-head {
+        margin-bottom: 1.65rem;
+        padding-bottom: 1.15rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .page-head .eyebrow {
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+        font-weight: 800;
+        margin-bottom: 0.45rem;
+    }
+
+    .page-head h1 {
+        margin: 0;
+        padding: 0;
+        font-size: 1.75rem;
+        line-height: 1.3;
+        letter-spacing: -0.025em;
+        color: var(--text);
+        font-weight: 750;
+    }
+
+    .page-head p {
+        margin: 0.52rem 0 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+        line-height: 1.65;
+    }
+
+    /* Section headings */
+    h2, h3 {
+        letter-spacing: -0.018em;
+        color: var(--text);
+    }
+
+    h2 {
+        margin-top: 1.6rem !important;
+        margin-bottom: 0.75rem !important;
+    }
+
+    h3 {
+        font-size: 1.03rem !important;
+        font-weight: 700 !important;
+        margin-top: 1.35rem !important;
+    }
+
+    /* Metric cards */
+    div[data-testid="stMetric"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1rem 1.05rem;
+        box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+    }
+
+    div[data-testid="stMetricLabel"] {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 650;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color: var(--text);
+        font-weight: 720;
+    }
+
+    /* Tabs */
+    div[data-baseweb="tab-list"] {
+        gap: 0.35rem;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.28rem;
+        margin-bottom: 1.05rem;
+    }
+
+    button[data-baseweb="tab"] {
+        border-radius: 7px;
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background: var(--accent-soft);
+        color: var(--accent) !important;
+    }
+
+    div[data-baseweb="tab-highlight"] {
+        display: none;
+    }
+
+    /* Controls */
+    .stButton > button, .stDownloadButton > button {
+        border-radius: 8px;
+        min-height: 2.45rem;
+        font-weight: 650;
+        border: 1px solid var(--line-strong);
+        box-shadow: none;
+    }
+
+    .stButton > button[kind="primary"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #ffffff;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+    }
+
+    .stDownloadButton > button:hover, .stButton > button:not([kind="primary"]):hover {
+        border-color: #9aa7b3;
+        background: var(--surface-soft);
+    }
+
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="input"] > div,
+    input, textarea {
+        border-radius: 8px !important;
+    }
+
+    div[data-testid="stFileUploaderDropzone"] {
+        background: var(--surface);
+        border: 1px dashed #b8c2cc;
+        border-radius: 12px;
+        padding-top: 1.15rem;
+        padding-bottom: 1.15rem;
+    }
+
+    /* Expanders */
+    details[data-testid="stExpander"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    details[data-testid="stExpander"] summary {
+        font-weight: 650;
+    }
+
+    /* Dataframe / charts */
+    div[data-testid="stDataFrame"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    div[data-testid="stPlotlyChart"] {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 0.35rem;
+    }
+
+    /* Alerts */
+    div[data-testid="stAlert"] {
+        border-radius: 9px;
+        border-width: 1px;
+        box-shadow: none;
+    }
+
+    /* Progress */
+    div[data-testid="stProgress"] > div > div > div {
+        background-color: var(--accent);
+    }
+
+    /* Separators / captions */
+    hr {
+        border-color: var(--line) !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 1.5rem !important;
+    }
+
+    .stCaption, small {
+        color: var(--muted) !important;
+    }
+
+    /* Slightly calmer markdown/body spacing */
+    .stMarkdown p {
+        line-height: 1.65;
+    }
+
+    @media (max-width: 900px) {
+        .main .block-container {
+            padding-left: 1.1rem;
+            padding-right: 1.1rem;
+        }
+        .page-head h1 {
+            font-size: 1.48rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
 RANDOM_STATE = 42
@@ -116,6 +489,29 @@ STATE_DEFAULTS = {
 for key, value in STATE_DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = value
+
+
+def render_page_header(step: str, title: str, subtitle: str):
+    """페이지마다 동일한 정보 계층을 유지하는 헤더."""
+    st.markdown(
+        f"""
+        <div class="page-head">
+            <div class="eyebrow">WORKFLOW {step}</div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def sidebar_status_html(label: str, status: str, status_class: str) -> str:
+    return (
+        f'<div class="status-row">'
+        f'<span class="status-label">{label}</span>'
+        f'<span class="status-badge {status_class}">{status}</span>'
+        f'</div>'
+    )
 
 
 # =========================================================
@@ -1009,11 +1405,20 @@ def train_and_evaluate_selected_models(selected_models, params):
 # =========================================================
 # 2. 사이드바
 # =========================================================
-st.sidebar.title("💳 개인신용평가 모델")
-st.sidebar.caption("Credit Scoring Modeling System")
+st.sidebar.markdown(
+    """
+    <div class="sidebar-brand">
+        <div class="kicker">CREDIT ANALYTICS</div>
+        <div class="name">개인신용평가 모델</div>
+        <div class="sub">Credit Scoring Modeling System</div>
+    </div>
+    <div class="sidebar-section-label">WORKFLOW</div>
+    """,
+    unsafe_allow_html=True,
+)
 
 page = st.sidebar.radio(
-    "메뉴",
+    "분석 단계",
     [
         "1. 데이터 업로드",
         "2. 데이터 탐색",
@@ -1021,24 +1426,39 @@ page = st.sidebar.radio(
         "4. 모델 학습",
         "5. 결과 분석",
     ],
+    label_visibility="collapsed",
 )
 
-st.sidebar.divider()
-st.sidebar.subheader("진행 상태")
+status_upload = ("완료", "done") if st.session_state.working_df is not None else ("대기", "wait")
+status_split = ("완료", "done") if st.session_state.splits is not None else ("대기", "wait")
+status_sampling = ("완료", "done") if st.session_state.resampled is not None else ("선택", "optional")
+status_model = ("완료", "done") if st.session_state.model_results else ("대기", "wait")
 
-st.sidebar.write(
-    "✅ 데이터 업로드" if st.session_state.working_df is not None else "⬜ 데이터 업로드"
-)
-st.sidebar.write(
-    "✅ 데이터 분할" if st.session_state.splits is not None else "⬜ 데이터 분할"
-)
-st.sidebar.write(
-    f"✅ 오버샘플링: {st.session_state.resampled['method']}"
-    if st.session_state.resampled is not None
-    else "➖ 오버샘플링: 사용 안 함 (선택사항)"
-)
-st.sidebar.write(
-    "✅ 모델 학습" if st.session_state.model_results else "⬜ 모델 학습"
+core_done = sum([
+    st.session_state.working_df is not None,
+    st.session_state.splits is not None,
+    bool(st.session_state.model_results),
+])
+progress_pct = int(core_done / 3 * 100)
+
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-section-label">PROGRESS</div>
+    <div style="display:flex; justify-content:space-between; font-size:0.74rem; color:#9ca3af; margin-bottom:0.3rem;">
+        <span>핵심 단계 진행률</span><span>{progress_pct}%</span>
+    </div>
+    <div class="workflow-progress"><div style="width:{progress_pct}%"></div></div>
+    <div style="margin-top:0.8rem;">
+        {sidebar_status_html("데이터 업로드", *status_upload)}
+        {sidebar_status_html("데이터 분할", *status_split)}
+        {sidebar_status_html("오버샘플링", *status_sampling)}
+        {sidebar_status_html("모델 학습", *status_model)}
+    </div>
+    <div style="margin-top:1rem; font-size:0.70rem; line-height:1.55; color:#8491a2;">
+        오버샘플링은 선택 단계이며, 원본 Train set으로도 모델 학습이 가능합니다.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -1046,8 +1466,7 @@ st.sidebar.write(
 # 3. 데이터 업로드
 # =========================================================
 if page == "1. 데이터 업로드":
-    st.title("1. 데이터 업로드")
-    st.write("CSV 또는 Excel 형식의 개인신용평가 데이터를 업로드하세요.")
+    render_page_header("01", "데이터 업로드", "분석에 사용할 원본 데이터를 불러오고 기본 구조와 품질을 확인합니다.")
 
     uploaded_file = st.file_uploader(
         "데이터 파일 선택",
@@ -1103,7 +1522,7 @@ if page == "1. 데이터 업로드":
 # 4. 데이터 탐색
 # =========================================================
 elif page == "2. 데이터 탐색":
-    st.title("2. 데이터 탐색")
+    render_page_header("02", "데이터 탐색", "데이터 구조, 기술통계, 변수 분포 및 변수 간 관계를 체계적으로 점검합니다.")
 
     df = get_current_df()
 
@@ -1256,7 +1675,7 @@ elif page == "2. 데이터 탐색":
 # 5. 데이터 전처리
 # =========================================================
 elif page == "3. 데이터 전처리":
-    st.title("3. 데이터 전처리")
+    render_page_header("03", "데이터 전처리", "결측치·이상치·인코딩·변수 선택·데이터 분할과 오버샘플링을 설정합니다.")
 
     df = get_current_df()
 
@@ -1291,7 +1710,7 @@ elif page == "3. 데이터 전처리":
             "이상치 처리",
             "인코딩",
             "Feature Selection",
-            "Data Partitioning / Oversampling",
+            "데이터 분할 · 오버샘플링",
         ]
     )
 
@@ -2664,7 +3083,7 @@ elif page == "3. 데이터 전처리":
 # 6. 모델 학습
 # =========================================================
 elif page == "4. 모델 학습":
-    st.title("4. 모델 학습")
+    render_page_header("04", "모델 학습", "원본 또는 오버샘플링된 Train set으로 여러 분류 모델을 동일한 조건에서 학습합니다.")
 
     if st.session_state.splits is None:
         st.warning(
@@ -2698,7 +3117,7 @@ elif page == "4. 모델 학습":
         ],
     )
 
-    st.subheader("Hyperparameters")
+    st.subheader("하이퍼파라미터")
 
     with st.expander("Logistic Regression"):
         logistic_c = st.number_input(
@@ -2820,7 +3239,7 @@ elif page == "4. 모델 학습":
 # 7. 결과 분석
 # =========================================================
 elif page == "5. 결과 분석":
-    st.title("5. 결과 분석")
+    render_page_header("05", "결과 분석", "Test 및 Validation 성능을 비교하고 ROC-AUC와 주요 분류 지표를 확인합니다.")
 
     results = st.session_state.model_results
 
