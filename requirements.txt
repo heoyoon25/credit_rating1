@@ -6,7 +6,6 @@ scikit-learn>=1.7,<2
 imbalanced-learn>=0.14,<0.15
 
 torch @ https://download.pytorch.org/whl/cpu/torch-2.5.1%2Bcpu-cp312-cp312-linux_x86_64.whl
-ctgan==0.12.1
 
 openai>=2.0,<3
 pydantic>=2.0,<3
