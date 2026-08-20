@@ -1,6 +1,7 @@
 import io
 import hashlib
 import json
+import time
 import warnings
 
 import numpy as np
@@ -348,6 +349,7 @@ def generate_openai_synthetic_rows(
     excluded_cols=None,
     include_samples=False,
     sample_rows=5,
+    progress_callback=None,
 ):
     """
     OpenAI Structured Outputs를 이용해 Minority class의 합성 feature 행을 생성.
@@ -406,12 +408,35 @@ def generate_openai_synthetic_rows(
     generated_batches = []
     remaining = int(n_rows)
     batch_no = 0
+    estimated_batches = int(np.ceil(int(n_rows) / max(1, int(batch_size))))
     total_input_tokens = 0
     total_output_tokens = 0
+
+    if progress_callback is not None:
+        progress_callback({
+            "stage": "starting",
+            "batch_no": 0,
+            "estimated_batches": estimated_batches,
+            "generated_rows": 0,
+            "target_rows": int(n_rows),
+            "progress": 0.0,
+        })
 
     while remaining > 0:
         batch_no += 1
         current_n = min(int(batch_size), remaining)
+        rows_before_batch = int(n_rows) - remaining
+
+        if progress_callback is not None:
+            progress_callback({
+                "stage": "requesting",
+                "batch_no": batch_no,
+                "estimated_batches": estimated_batches,
+                "generated_rows": rows_before_batch,
+                "target_rows": int(n_rows),
+                "progress": rows_before_batch / max(1, int(n_rows)),
+            })
+
         request_payload = dict(prompt_payload)
         request_payload["number_of_rows"] = current_n
 
@@ -474,6 +499,17 @@ def generate_openai_synthetic_rows(
         batch_df = snap_synthetic_to_training_domain(batch_df, real_minority)
         generated_batches.append(batch_df)
         remaining -= min(len(batch_df), current_n)
+        rows_after_batch = int(n_rows) - remaining
+
+        if progress_callback is not None:
+            progress_callback({
+                "stage": "completed",
+                "batch_no": batch_no,
+                "estimated_batches": estimated_batches,
+                "generated_rows": rows_after_batch,
+                "target_rows": int(n_rows),
+                "progress": min(1.0, rows_after_batch / max(1, int(n_rows))),
+            })
 
     synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows))
     usage_summary = calculate_openai_cost_from_usage(
@@ -1713,16 +1749,13 @@ elif page == "3. 데이터 전처리":
                             "GPT 모델 선택",
                             model_options,
                             index=model_options.index(default_model),
-                            format_func=lambda name: (
-                                f"[{OPENAI_MODEL_PRICING[name]['tier']}] {name} — "
-                                f"{OPENAI_MODEL_PRICING[name]['description']}"
-                            ),
+                            format_func=lambda name: name,
                             key="openai_model_select",
                         )
                         model_info = OPENAI_MODEL_PRICING[model_display]
                         model_name = model_info["id"]
                         st.caption(
-                            f"분류: {model_info['tier']} · API 모델 ID: `{model_name}` · "
+                            f"{model_info['description']} · API 모델 ID: `{model_name}` · "
                             f"Input ${model_info['input_per_million']:.2f}/1M tokens · "
                             f"Output ${model_info['output_per_million']:.2f}/1M tokens"
                         )
@@ -1841,17 +1874,89 @@ elif page == "3. 데이터 전처리":
                                 st.error("모든 변수를 API 전송 제외로 선택할 수는 없습니다.")
                             else:
                                 try:
-                                    with st.spinner("OpenAI API로 Minority 합성 데이터를 생성 중입니다..."):
-                                        synthetic_X, actual_usage = generate_openai_synthetic_rows(
-                                            api_key=api_key.strip(),
-                                            model_name=model_name,
-                                            real_minority=real_minority,
-                                            n_rows=n_to_generate,
-                                            batch_size=batch_size,
-                                            excluded_cols=excluded_cols,
-                                            include_samples=include_samples,
-                                            sample_rows=sample_rows,
+                                    progress_bar = st.progress(
+                                        0.0,
+                                        text=f"생성 준비 중 — 0 / {n_to_generate:,}행",
+                                    )
+                                    progress_status = st.empty()
+                                    progress_metrics = st.empty()
+                                    started_at = time.monotonic()
+
+                                    def _format_seconds(seconds):
+                                        seconds = max(0, int(seconds))
+                                        minutes, secs = divmod(seconds, 60)
+                                        hours, minutes = divmod(minutes, 60)
+                                        if hours:
+                                            return f"{hours}시간 {minutes}분 {secs}초"
+                                        if minutes:
+                                            return f"{minutes}분 {secs}초"
+                                        return f"{secs}초"
+
+                                    def _update_generation_progress(info):
+                                        elapsed = time.monotonic() - started_at
+                                        done = int(info.get("generated_rows", 0))
+                                        target = int(info.get("target_rows", n_to_generate))
+                                        batch_no_now = int(info.get("batch_no", 0))
+                                        total_batches_now = int(info.get("estimated_batches", 0))
+                                        fraction = float(info.get("progress", 0.0))
+                                        fraction = min(1.0, max(0.0, fraction))
+                                        percent = int(round(fraction * 100))
+
+                                        rate = done / elapsed if elapsed > 0 and done > 0 else 0.0
+                                        eta_seconds = (target - done) / rate if rate > 0 else None
+                                        eta_text = _format_seconds(eta_seconds) if eta_seconds is not None else "계산 중"
+
+                                        progress_bar.progress(
+                                            fraction,
+                                            text=f"생성 진행률 {percent}% — {done:,} / {target:,}행",
                                         )
+
+                                        stage = info.get("stage")
+                                        if stage == "requesting":
+                                            progress_status.info(
+                                                f"API 배치 {batch_no_now:,} 요청 중 "
+                                                f"(예상 총 {total_batches_now:,}회) · OpenAI 응답을 기다리고 있습니다."
+                                            )
+                                        elif stage == "completed":
+                                            progress_status.success(
+                                                f"배치 {batch_no_now:,} 완료 · 현재까지 {done:,}행 생성"
+                                            )
+                                        else:
+                                            progress_status.info("합성 데이터 생성을 시작합니다.")
+
+                                        with progress_metrics.container():
+                                            p1, p2, p3, p4 = st.columns(4)
+                                            p1.metric("진행률", f"{percent}%")
+                                            p2.metric("생성 완료", f"{done:,} / {target:,}행")
+                                            p3.metric(
+                                                "API 배치",
+                                                f"{batch_no_now:,} / {total_batches_now:,}",
+                                            )
+                                            p4.metric(
+                                                "예상 남은 시간",
+                                                eta_text if done < target else "완료",
+                                            )
+
+                                    synthetic_X, actual_usage = generate_openai_synthetic_rows(
+                                        api_key=api_key.strip(),
+                                        model_name=model_name,
+                                        real_minority=real_minority,
+                                        n_rows=n_to_generate,
+                                        batch_size=batch_size,
+                                        excluded_cols=excluded_cols,
+                                        include_samples=include_samples,
+                                        sample_rows=sample_rows,
+                                        progress_callback=_update_generation_progress,
+                                    )
+
+                                    progress_bar.progress(
+                                        1.0,
+                                        text=f"생성 완료 — {n_to_generate:,} / {n_to_generate:,}행",
+                                    )
+                                    progress_status.success(
+                                        f"GPT 합성 데이터 생성이 완료되었습니다. 총 소요 시간: "
+                                        f"{_format_seconds(time.monotonic() - started_at)}"
+                                    )
 
                                     if remove_duplicates:
                                         real_hashable = splits["X_train"].astype(str)
