@@ -3,6 +3,8 @@ import hashlib
 import json
 import time
 import warnings
+import zipfile
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -41,6 +43,7 @@ st.set_page_config(
 )
 
 RANDOM_STATE = 42
+CHECKPOINT_DIR = Path.cwd() / ".credit_rating_checkpoints"
 
 # OpenAI API standard text-token pricing (USD per 1M tokens).
 # Update these values when OpenAI changes API pricing.
@@ -137,6 +140,50 @@ def get_current_df():
 def class_count_table(y: pd.Series, label="class"):
     vc = y.value_counts().sort_index()
     return pd.DataFrame({label: vc.index, "count": vc.values})
+
+
+def class_distribution_table(y: pd.Series, stage: str):
+    """종속변수 클래스별 개수와 비율을 계산한다."""
+    vc = y.value_counts().sort_index()
+    total = int(vc.sum())
+    rows = []
+    for cls, count in vc.items():
+        rows.append(
+            {
+                "구분": stage,
+                "클래스": str(cls),
+                "개수": int(count),
+                "비율(%)": round((int(count) / total * 100) if total else 0.0, 2),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def pair_matching_status(y: pd.Series):
+    """이진 종속변수가 정확히 1:1로 균형화되었는지 판정한다."""
+    vc = y.value_counts().sort_index()
+    if len(vc) != 2:
+        return {
+            "is_binary": False,
+            "is_matched": False,
+            "minority": int(vc.min()) if len(vc) else 0,
+            "majority": int(vc.max()) if len(vc) else 0,
+            "ratio": np.nan,
+            "difference": np.nan,
+        }
+
+    minority = int(vc.min())
+    majority = int(vc.max())
+    ratio = minority / majority if majority else np.nan
+    difference = majority - minority
+    return {
+        "is_binary": True,
+        "is_matched": minority == majority,
+        "minority": minority,
+        "majority": majority,
+        "ratio": ratio,
+        "difference": difference,
+    }
 
 
 def safe_auc(y_true, y_prob):
@@ -340,6 +387,133 @@ def calculate_openai_cost_from_usage(model_id, input_tokens, output_tokens):
     }
 
 
+
+def dataframe_signature(df: pd.DataFrame):
+    """현재 Train minority 데이터가 같은 작업인지 확인하기 위한 안정적인 해시."""
+    hashed = pd.util.hash_pandas_object(df, index=True).values.tobytes()
+    h = hashlib.sha256()
+    h.update(hashed)
+    h.update("|".join(map(str, df.columns)).encode("utf-8"))
+    h.update("|".join(map(str, df.dtypes)).encode("utf-8"))
+    return h.hexdigest()
+
+
+def build_genai_job_id(
+    real_minority,
+    model_name,
+    target_rows,
+    batch_size,
+    excluded_cols,
+    include_samples,
+    sample_rows,
+    target_col,
+    minority_label,
+):
+    """같은 데이터/설정의 GPT 생성 작업을 식별하는 ID."""
+    payload = {
+        "data_signature": dataframe_signature(real_minority),
+        "model_name": model_name,
+        "target_rows": int(target_rows),
+        "batch_size": int(batch_size),
+        "excluded_cols": sorted(list(excluded_cols or [])),
+        "include_samples": bool(include_samples),
+        "sample_rows": int(sample_rows),
+        "target_col": str(target_col),
+        "minority_label": str(minority_label),
+        "columns": list(map(str, real_minority.columns)),
+    }
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:24], payload
+
+
+def _checkpoint_paths(job_id):
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    return (
+        CHECKPOINT_DIR / f"{job_id}.pkl",
+        CHECKPOINT_DIR / f"{job_id}.json",
+    )
+
+
+def save_genai_checkpoint(job_id, synthetic_df, metadata):
+    """배치가 끝날 때마다 로컬 디스크에 원자적으로 체크포인트 저장."""
+    data_path, meta_path = _checkpoint_paths(job_id)
+    metadata = dict(metadata)
+    metadata["job_id"] = job_id
+    metadata["generated_rows"] = int(len(synthetic_df))
+    metadata["updated_at"] = pd.Timestamp.now().isoformat()
+
+    tmp_data = data_path.with_suffix('.pkl.tmp')
+    tmp_meta = meta_path.with_suffix('.json.tmp')
+    synthetic_df.to_pickle(tmp_data)
+    tmp_meta.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2, default=str),
+        encoding='utf-8',
+    )
+    tmp_data.replace(data_path)
+    tmp_meta.replace(meta_path)
+
+
+def load_genai_checkpoint(job_id):
+    data_path, meta_path = _checkpoint_paths(job_id)
+    if not data_path.exists() or not meta_path.exists():
+        return None
+    try:
+        synthetic_df = pd.read_pickle(data_path)
+        metadata = json.loads(meta_path.read_text(encoding='utf-8'))
+        return {"synthetic_df": synthetic_df, "metadata": metadata}
+    except Exception:
+        return None
+
+
+def delete_genai_checkpoint(job_id):
+    data_path, meta_path = _checkpoint_paths(job_id)
+    for path in (data_path, meta_path):
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def build_checkpoint_zip_bytes(job_id, synthetic_df, metadata):
+    """사용자가 보관할 수 있는 안전한 ZIP(CSV + JSON) 체크포인트 생성."""
+    meta = dict(metadata)
+    meta["job_id"] = job_id
+    meta["generated_rows"] = int(len(synthetic_df))
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            'metadata.json',
+            json.dumps(meta, ensure_ascii=False, indent=2, default=str),
+        )
+        zf.writestr(
+            'synthetic_rows.csv',
+            synthetic_df.to_csv(index=False).encode('utf-8-sig'),
+        )
+    return buffer.getvalue()
+
+
+def import_checkpoint_zip_bytes(zip_bytes, expected_job_id, expected_columns):
+    """사용자가 저장해 둔 ZIP 체크포인트를 다시 읽는다. Pickle은 보안상 업로드받지 않는다."""
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
+        names = set(zf.namelist())
+        if 'metadata.json' not in names or 'synthetic_rows.csv' not in names:
+            raise ValueError('체크포인트 ZIP에 metadata.json 또는 synthetic_rows.csv가 없습니다.')
+        metadata = json.loads(zf.read('metadata.json').decode('utf-8'))
+        if metadata.get('job_id') != expected_job_id:
+            raise ValueError(
+                '현재 데이터/모델/생성 설정과 다른 체크포인트입니다. '
+                '체크포인트를 만든 당시의 설정으로 맞춘 뒤 다시 시도하세요.'
+            )
+        synthetic_df = pd.read_csv(io.BytesIO(zf.read('synthetic_rows.csv')))
+
+    expected_columns = list(expected_columns)
+    missing = [c for c in expected_columns if c not in synthetic_df.columns]
+    if missing:
+        raise ValueError(f'체크포인트에 필요한 변수들이 없습니다: {missing}')
+    synthetic_df = synthetic_df[expected_columns].copy()
+    return synthetic_df, metadata
+
+
 def generate_openai_synthetic_rows(
     api_key,
     model_name,
@@ -350,6 +524,11 @@ def generate_openai_synthetic_rows(
     include_samples=False,
     sample_rows=5,
     progress_callback=None,
+    checkpoint_callback=None,
+    resume_df=None,
+    initial_input_tokens=0,
+    initial_output_tokens=0,
+    initial_batch_no=0,
 ):
     """
     OpenAI Structured Outputs를 이용해 Minority class의 합성 feature 행을 생성.
@@ -405,21 +584,29 @@ def generate_openai_synthetic_rows(
         prompt_payload["example_minority_rows"] = safe_sample.to_dict(orient="records")
 
     client = OpenAI(api_key=api_key)
-    generated_batches = []
-    remaining = int(n_rows)
-    batch_no = 0
+
+    if resume_df is not None and len(resume_df) > 0:
+        resume_df = resume_df.reindex(columns=all_cols).copy().head(int(n_rows))
+        generated_batches = [resume_df]
+        already_generated = int(len(resume_df))
+    else:
+        generated_batches = []
+        already_generated = 0
+
+    remaining = max(0, int(n_rows) - already_generated)
+    batch_no = int(initial_batch_no or 0)
     estimated_batches = int(np.ceil(int(n_rows) / max(1, int(batch_size))))
-    total_input_tokens = 0
-    total_output_tokens = 0
+    total_input_tokens = int(initial_input_tokens or 0)
+    total_output_tokens = int(initial_output_tokens or 0)
 
     if progress_callback is not None:
         progress_callback({
-            "stage": "starting",
-            "batch_no": 0,
+            "stage": "resuming" if already_generated else "starting",
+            "batch_no": batch_no,
             "estimated_batches": estimated_batches,
-            "generated_rows": 0,
+            "generated_rows": already_generated,
             "target_rows": int(n_rows),
-            "progress": 0.0,
+            "progress": already_generated / max(1, int(n_rows)),
         })
 
     while remaining > 0:
@@ -501,20 +688,30 @@ def generate_openai_synthetic_rows(
         remaining -= min(len(batch_df), current_n)
         rows_after_batch = int(n_rows) - remaining
 
-        if progress_callback is not None:
-            progress_callback({
-                "stage": "completed",
-                "batch_no": batch_no,
-                "estimated_batches": estimated_batches,
-                "generated_rows": rows_after_batch,
-                "target_rows": int(n_rows),
-                "progress": min(1.0, rows_after_batch / max(1, int(n_rows))),
-            })
+        progress_info = {
+            "stage": "completed",
+            "batch_no": batch_no,
+            "estimated_batches": estimated_batches,
+            "generated_rows": rows_after_batch,
+            "target_rows": int(n_rows),
+            "progress": min(1.0, rows_after_batch / max(1, int(n_rows))),
+            "input_tokens": int(total_input_tokens),
+            "output_tokens": int(total_output_tokens),
+        }
 
-    synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows))
+        if progress_callback is not None:
+            progress_callback(progress_info)
+
+        if checkpoint_callback is not None:
+            current_synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows))
+            checkpoint_callback(current_synthetic, progress_info)
+
+    synthetic = pd.concat(generated_batches, ignore_index=True).head(int(n_rows)) if generated_batches else pd.DataFrame(columns=all_cols)
     usage_summary = calculate_openai_cost_from_usage(
         model_name, total_input_tokens, total_output_tokens
     )
+    usage_summary["completed_batches"] = int(batch_no)
+    usage_summary["generated_rows"] = int(len(synthetic))
     return synthetic, usage_summary
 
 
@@ -1859,7 +2056,111 @@ elif page == "3. 데이터 전처리":
                             key="genai_cost_ack",
                         )
 
-                        if st.button("Generative AI 오버샘플링 실행", key="run_genai"):
+                        # -------------------------------------------------
+                        # GPT 생성 체크포인트 / 이어하기
+                        # -------------------------------------------------
+                        job_id, job_payload = build_genai_job_id(
+                            real_minority=real_minority,
+                            model_name=model_name,
+                            target_rows=n_to_generate,
+                            batch_size=batch_size,
+                            excluded_cols=excluded_cols,
+                            include_samples=include_samples,
+                            sample_rows=sample_rows,
+                            target_col=target_col,
+                            minority_label=minority_label,
+                        )
+
+                        uploaded_checkpoint = st.file_uploader(
+                            "저장해 둔 GPT 체크포인트 ZIP 불러오기 (선택사항)",
+                            type=["zip"],
+                            key=f"genai_checkpoint_upload_{job_id}",
+                            help=(
+                                "Streamlit 서버가 완전히 재시작되면 로컬 체크포인트가 사라질 수 있습니다. "
+                                "이전에 다운로드한 체크포인트 ZIP을 올리면 해당 지점부터 이어서 생성할 수 있습니다."
+                            ),
+                        )
+                        if uploaded_checkpoint is not None:
+                            if st.button("업로드한 체크포인트 적용", key=f"apply_checkpoint_{job_id}"):
+                                try:
+                                    imported_df, imported_meta = import_checkpoint_zip_bytes(
+                                        uploaded_checkpoint.getvalue(),
+                                        expected_job_id=job_id,
+                                        expected_columns=real_minority.columns.tolist(),
+                                    )
+                                    imported_df = snap_synthetic_to_training_domain(
+                                        imported_df,
+                                        real_minority,
+                                    ).head(n_to_generate)
+                                    imported_meta.update({
+                                        "job_payload": job_payload,
+                                        "status": "in_progress" if len(imported_df) < n_to_generate else "completed",
+                                    })
+                                    save_genai_checkpoint(job_id, imported_df, imported_meta)
+                                    st.success(
+                                        f"체크포인트를 불러왔습니다: {len(imported_df):,} / {n_to_generate:,}행"
+                                    )
+                                    st.rerun()
+                                except Exception as e:
+                                    st.error(f"체크포인트 불러오기 실패: {e}")
+
+                        checkpoint_state = load_genai_checkpoint(job_id)
+                        resume_available = False
+                        resume_rows = 0
+                        if checkpoint_state is not None:
+                            cp_df = checkpoint_state["synthetic_df"].head(n_to_generate)
+                            cp_meta = checkpoint_state["metadata"]
+                            resume_rows = int(len(cp_df))
+                            resume_available = 0 < resume_rows < n_to_generate
+                            cp_percent = (resume_rows / n_to_generate * 100) if n_to_generate else 100.0
+
+                            if resume_available:
+                                st.success(
+                                    f"중단된 GPT 생성 작업을 찾았습니다: "
+                                    f"{resume_rows:,} / {n_to_generate:,}행 ({cp_percent:.1f}%) 저장됨"
+                                )
+                            elif resume_rows >= n_to_generate and n_to_generate > 0:
+                                st.info(
+                                    f"완료된 체크포인트가 있습니다: {resume_rows:,}행. "
+                                    "동일 설정으로 후처리를 다시 실행할 수 있습니다."
+                                )
+
+                            cp_zip = build_checkpoint_zip_bytes(job_id, cp_df, cp_meta)
+                            cp_c1, cp_c2 = st.columns(2)
+                            with cp_c1:
+                                st.download_button(
+                                    "현재 체크포인트 ZIP 다운로드",
+                                    data=cp_zip,
+                                    file_name=f"gpt_oversampling_checkpoint_{job_id}.zip",
+                                    mime="application/zip",
+                                    key=f"download_checkpoint_{job_id}_{resume_rows}",
+                                    use_container_width=True,
+                                )
+                            with cp_c2:
+                                if st.button(
+                                    "현재 체크포인트 삭제",
+                                    key=f"delete_checkpoint_{job_id}",
+                                    use_container_width=True,
+                                ):
+                                    delete_genai_checkpoint(job_id)
+                                    st.success("체크포인트를 삭제했습니다.")
+                                    st.rerun()
+
+                        start_fresh = False
+                        if checkpoint_state is not None and resume_rows > 0:
+                            start_fresh = st.checkbox(
+                                "저장된 체크포인트를 사용하지 않고 처음부터 다시 생성",
+                                value=False,
+                                key=f"genai_start_fresh_{job_id}",
+                            )
+
+                        run_button_label = (
+                            "중단 지점부터 GPT 오버샘플링 이어서 실행"
+                            if resume_available and not start_fresh
+                            else "Generative AI 오버샘플링 실행"
+                        )
+
+                        if st.button(run_button_label, key="run_genai"):
                             if not api_key.strip():
                                 st.error("OpenAI API Key를 입력하세요.")
                             elif target_ratio <= current_ratio:
@@ -1874,12 +2175,31 @@ elif page == "3. 데이터 전처리":
                                 st.error("모든 변수를 API 전송 제외로 선택할 수는 없습니다.")
                             else:
                                 try:
+                                    if start_fresh:
+                                        delete_genai_checkpoint(job_id)
+                                        checkpoint_state = None
+
+                                    checkpoint_state = load_genai_checkpoint(job_id)
+                                    if checkpoint_state is not None:
+                                        initial_synthetic = checkpoint_state["synthetic_df"].head(n_to_generate).copy()
+                                        initial_meta = checkpoint_state["metadata"]
+                                    else:
+                                        initial_synthetic = pd.DataFrame(columns=real_minority.columns)
+                                        initial_meta = {}
+
+                                    initial_rows = int(len(initial_synthetic))
+                                    initial_fraction = initial_rows / max(1, n_to_generate)
+                                    initial_input_tokens = int(initial_meta.get("total_input_tokens", 0) or 0)
+                                    initial_output_tokens = int(initial_meta.get("total_output_tokens", 0) or 0)
+                                    initial_batch_no = int(initial_meta.get("completed_batches", 0) or 0)
+
                                     progress_bar = st.progress(
-                                        0.0,
-                                        text=f"생성 준비 중 — 0 / {n_to_generate:,}행",
+                                        initial_fraction,
+                                        text=f"생성 준비 중 — {initial_rows:,} / {n_to_generate:,}행",
                                     )
                                     progress_status = st.empty()
                                     progress_metrics = st.empty()
+                                    checkpoint_download_placeholder = st.empty()
                                     started_at = time.monotonic()
 
                                     def _format_seconds(seconds):
@@ -1902,7 +2222,8 @@ elif page == "3. 데이터 전처리":
                                         fraction = min(1.0, max(0.0, fraction))
                                         percent = int(round(fraction * 100))
 
-                                        rate = done / elapsed if elapsed > 0 and done > 0 else 0.0
+                                        newly_done = max(0, done - initial_rows)
+                                        rate = newly_done / elapsed if elapsed > 0 and newly_done > 0 else 0.0
                                         eta_seconds = (target - done) / rate if rate > 0 else None
                                         eta_text = _format_seconds(eta_seconds) if eta_seconds is not None else "계산 중"
 
@@ -1921,6 +2242,10 @@ elif page == "3. 데이터 전처리":
                                             progress_status.success(
                                                 f"배치 {batch_no_now:,} 완료 · 현재까지 {done:,}행 생성"
                                             )
+                                        elif stage == "resuming":
+                                            progress_status.info(
+                                                f"저장된 체크포인트 {done:,}행부터 이어서 생성합니다."
+                                            )
                                         else:
                                             progress_status.info("합성 데이터 생성을 시작합니다.")
 
@@ -1937,6 +2262,42 @@ elif page == "3. 데이터 전처리":
                                                 eta_text if done < target else "완료",
                                             )
 
+                                    def _save_generation_checkpoint(synthetic_so_far, info):
+                                        checkpoint_meta = {
+                                            "job_payload": job_payload,
+                                            "status": "in_progress",
+                                            "model_display": model_display,
+                                            "model_name": model_name,
+                                            "target_rows": int(n_to_generate),
+                                            "batch_size": int(batch_size),
+                                            "target_ratio": float(target_ratio),
+                                            "target_col": str(target_col),
+                                            "minority_label": str(minority_label),
+                                            "completed_batches": int(info.get("batch_no", 0)),
+                                            "total_input_tokens": int(info.get("input_tokens", 0)),
+                                            "total_output_tokens": int(info.get("output_tokens", 0)),
+                                            "excluded_cols": list(excluded_cols),
+                                            "include_samples": bool(include_samples),
+                                            "sample_rows": int(sample_rows),
+                                        }
+                                        save_genai_checkpoint(job_id, synthetic_so_far, checkpoint_meta)
+
+                                        # 현재 생성분을 사용자가 별도로 보관할 수도 있게 매 배치 갱신
+                                        zip_bytes = build_checkpoint_zip_bytes(
+                                            job_id,
+                                            synthetic_so_far,
+                                            checkpoint_meta,
+                                        )
+                                        with checkpoint_download_placeholder.container():
+                                            st.download_button(
+                                                f"체크포인트 백업 다운로드 ({len(synthetic_so_far):,}행 저장됨)",
+                                                data=zip_bytes,
+                                                file_name=f"gpt_oversampling_checkpoint_{job_id}.zip",
+                                                mime="application/zip",
+                                                key=f"running_checkpoint_{job_id}_{len(synthetic_so_far)}",
+                                                use_container_width=True,
+                                            )
+
                                     synthetic_X, actual_usage = generate_openai_synthetic_rows(
                                         api_key=api_key.strip(),
                                         model_name=model_name,
@@ -1947,7 +2308,31 @@ elif page == "3. 데이터 전처리":
                                         include_samples=include_samples,
                                         sample_rows=sample_rows,
                                         progress_callback=_update_generation_progress,
+                                        checkpoint_callback=_save_generation_checkpoint,
+                                        resume_df=initial_synthetic,
+                                        initial_input_tokens=initial_input_tokens,
+                                        initial_output_tokens=initial_output_tokens,
+                                        initial_batch_no=initial_batch_no,
                                     )
+
+                                    completed_meta = {
+                                        "job_payload": job_payload,
+                                        "status": "completed",
+                                        "model_display": model_display,
+                                        "model_name": model_name,
+                                        "target_rows": int(n_to_generate),
+                                        "batch_size": int(batch_size),
+                                        "target_ratio": float(target_ratio),
+                                        "target_col": str(target_col),
+                                        "minority_label": str(minority_label),
+                                        "completed_batches": int(actual_usage.get("completed_batches", initial_batch_no)),
+                                        "total_input_tokens": int(actual_usage.get("input_tokens", 0)),
+                                        "total_output_tokens": int(actual_usage.get("output_tokens", 0)),
+                                        "excluded_cols": list(excluded_cols),
+                                        "include_samples": bool(include_samples),
+                                        "sample_rows": int(sample_rows),
+                                    }
+                                    save_genai_checkpoint(job_id, synthetic_X, completed_meta)
 
                                     progress_bar.progress(
                                         1.0,
@@ -2016,32 +2401,133 @@ elif page == "3. 데이터 전처리":
                                         "requirements.txt에 `openai`를 포함했는지 확인하세요."
                                     )
                                 except Exception as e:
-                                    st.error(f"Generative AI 오버샘플링 중 오류: {e}")
+                                    saved_state = load_genai_checkpoint(job_id)
+                                    if saved_state is not None and len(saved_state["synthetic_df"]) > 0:
+                                        saved_n = len(saved_state["synthetic_df"])
+                                        st.error(
+                                            f"Generative AI 오버샘플링 중 오류: {e}\n\n"
+                                            f"체크포인트에 {saved_n:,}행까지 저장되어 있습니다. "
+                                            "같은 설정으로 다시 실행하면 저장된 지점부터 이어집니다."
+                                        )
+                                    else:
+                                        st.error(f"Generative AI 오버샘플링 중 오류: {e}")
 
                     if st.session_state.resampled is not None:
                         rs = st.session_state.resampled
 
+                        st.divider()
+                        st.markdown("### 오버샘플링 후 데이터 분포")
                         st.write(f"**현재 Train 데이터:** {rs['method']}")
+
+                        before_dist = class_distribution_table(
+                            splits["y_train"], "오버샘플링 전"
+                        )
+                        after_dist = class_distribution_table(
+                            rs["y_train"], "오버샘플링 후"
+                        )
+                        distribution_df = pd.concat(
+                            [before_dist, after_dist], ignore_index=True
+                        )
+
+                        before_status = pair_matching_status(splits["y_train"])
+                        after_status = pair_matching_status(rs["y_train"])
+                        target_name = splits.get("target_col", st.session_state.target_col)
+                        positive_class = splits.get("positive_class", None)
+
+                        m1, m2, m3, m4 = st.columns(4)
+                        m1.metric("종속변수", str(target_name))
+                        m2.metric(
+                            "Positive class (1)",
+                            str(positive_class) if positive_class is not None else "1",
+                        )
+                        m3.metric(
+                            "오버샘플링 후 비율",
+                            f"{after_status['ratio']:.3f}"
+                            if pd.notna(after_status["ratio"])
+                            else "N/A",
+                            help="Minority / Majority 비율입니다. 1.000이면 정확한 1:1입니다.",
+                        )
+                        m4.metric(
+                            "Pair Matching",
+                            "완료 (1:1)" if after_status["is_matched"] else "미완료",
+                        )
+
+                        if not after_status["is_binary"]:
+                            st.warning(
+                                "선택한 종속변수가 현재 이진 클래스가 아니므로 "
+                                "1:1 Pair Matching 여부를 판정할 수 없습니다."
+                            )
+                        elif after_status["is_matched"]:
+                            st.success(
+                                f"✅ Pair Matching 완료: 종속변수 `{target_name}`의 두 클래스가 "
+                                f"각각 {after_status['majority']:,}행으로 정확히 1:1입니다."
+                            )
+                        else:
+                            st.warning(
+                                f"⚠️ Pair Matching 미완료: Minority {after_status['minority']:,}행 / "
+                                f"Majority {after_status['majority']:,}행으로 "
+                                f"{after_status['difference']:,}행 차이가 있습니다. "
+                                f"현재 비율은 {after_status['ratio']:.3f}:1입니다."
+                            )
+
                         c1, c2 = st.columns(2)
 
                         with c1:
-                            st.write("오버샘플링 전")
+                            st.write("**오버샘플링 전 분포**")
                             st.dataframe(
-                                class_count_table(splits["y_train"]),
+                                before_dist[["클래스", "개수", "비율(%)"]],
                                 use_container_width=True,
                                 hide_index=True,
                             )
 
                         with c2:
-                            st.write("오버샘플링 후")
+                            st.write("**오버샘플링 후 분포**")
                             st.dataframe(
-                                class_count_table(rs["y_train"]),
+                                after_dist[["클래스", "개수", "비율(%)"]],
                                 use_container_width=True,
                                 hide_index=True,
                             )
 
+                        st.write("**종속변수 분포 비교**")
+                        fig_distribution = px.bar(
+                            distribution_df,
+                            x="클래스",
+                            y="개수",
+                            color="구분",
+                            barmode="group",
+                            text="개수",
+                            title=f"{target_name} 클래스 분포: 오버샘플링 전 vs 후",
+                        )
+                        fig_distribution.update_traces(textposition="outside")
+                        st.plotly_chart(fig_distribution, use_container_width=True)
+
+                        st.caption(
+                            "Pair Matching은 오버샘플링 후 두 클래스의 개수가 정확히 같은 1:1 상태인지 확인합니다. "
+                            "목표 Minority / Majority 비율을 1.00으로 설정해야 일반적으로 1:1이 됩니다."
+                        )
+
+                        with st.expander("오버샘플링 후 Train 데이터 확인"):
+                            resampled_preview = rs["X_train"].copy()
+                            resampled_preview[target_name] = rs["y_train"].to_numpy()
+                            st.dataframe(
+                                resampled_preview.head(100),
+                                use_container_width=True,
+                            )
+                            st.download_button(
+                                "오버샘플링 후 Train 데이터 CSV 다운로드",
+                                data=resampled_preview.to_csv(index=False).encode("utf-8-sig"),
+                                file_name="resampled_train_data.csv",
+                                mime="text/csv",
+                                key="download_resampled_train",
+                            )
+
                         if "synthetic_sample" in rs:
-                            with st.expander("CTGAN 합성 데이터 예시"):
+                            sample_label = (
+                                "Generative AI 합성 데이터 예시"
+                                if "Generative AI" in rs.get("method", "")
+                                else "CTGAN 합성 데이터 예시"
+                            )
+                            with st.expander(sample_label):
                                 st.dataframe(
                                     rs["synthetic_sample"],
                                     use_container_width=True,
