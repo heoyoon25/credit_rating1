@@ -4,6 +4,10 @@ numpy>=2.0,<2.4
 plotly>=6.0,<7
 scikit-learn>=1.7,<2
 imbalanced-learn>=0.14,<0.15
+
+torch==2.5.0+cpu
+ctgan==0.12.1
+
 openai>=2.0,<3
 pydantic>=2.0,<3
 openpyxl>=3.1,<4
