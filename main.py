@@ -1,6 +1,7 @@
 import io
 import hashlib
 import json
+import re
 import time
 import warnings
 import zipfile
@@ -243,6 +244,85 @@ def snap_synthetic_to_training_domain(synthetic: pd.DataFrame, real: pd.DataFram
     return result
 
 
+def detect_identifier_columns(columns):
+    """
+    API 외부 전송에서 반드시 제외할 직접 식별자/강한 식별자 후보를 변수명으로 탐지한다.
+
+    주의:
+    - 단순 substring 'id' 검사는 paid 같은 정상 변수를 오탐할 수 있으므로 사용하지 않는다.
+    - 자동 탐지된 변수는 UI에서 해제할 수 없는 보호 변수로 취급한다.
+    """
+    exact_normalized = {
+        # English identifiers
+        "id", "userid", "useridentifier", "customerid", "clientid", "memberid",
+        "accountid", "loanid", "applicationid", "transactionid", "recordid",
+        "name", "fullname", "firstname", "lastname", "middlename", "username",
+        "phone", "phonenumber", "mobile", "mobilenumber", "telephone", "tel",
+        "address", "homeaddress", "streetaddress", "mailingaddress",
+        "email", "emailaddress",
+        "ssn", "socialsecuritynumber", "residentregistrationnumber", "rrn",
+        "passport", "passportnumber",
+        "customernumber", "clientnumber", "membernumber",
+        "accountnumber", "bankaccountnumber", "cardnumber", "creditcardnumber",
+        "zipcode", "postalcode", "postcode",
+        # Korean identifiers
+        "아이디", "사용자아이디", "고객아이디", "회원아이디",
+        "이름", "성명", "성명정보", "고객명", "회원명",
+        "전화번호", "휴대폰번호", "핸드폰번호", "연락처", "휴대전화",
+        "주소", "거주지주소", "도로명주소", "상세주소",
+        "이메일", "이메일주소", "메일주소",
+        "주민등록번호", "주민번호", "외국인등록번호",
+        "여권번호", "운전면허번호",
+        "고객번호", "회원번호", "계좌번호", "카드번호",
+        "우편번호",
+    }
+
+    # 이름 자체에 이 토큰이 명확히 포함되면 식별자로 판단한다.
+    strong_substrings = (
+        "phone", "mobile", "telephone", "email", "address", "passport",
+        "socialsecurity", "residentregistration", "accountnumber", "cardnumber",
+        "전화번호", "휴대폰", "핸드폰", "연락처", "이메일", "주소",
+        "주민등록", "주민번호", "외국인등록", "여권번호", "면허번호",
+        "계좌번호", "카드번호", "고객번호", "회원번호",
+    )
+
+    protected = []
+    for col in columns:
+        raw = str(col).strip()
+        lower = raw.lower()
+        normalized = re.sub(r"[^0-9a-zA-Z가-힣]+", "", lower)
+        tokens = [t for t in re.split(r"[^0-9a-zA-Z가-힣]+", lower) if t]
+
+        is_identifier = normalized in exact_normalized
+
+        # id는 독립 토큰 또는 접미/접두 형태일 때만 인식한다.
+        if not is_identifier:
+            if "id" in tokens or lower.endswith("_id") or lower.startswith("id_"):
+                is_identifier = True
+            elif normalized.endswith("id") and normalized in {
+                "userid", "customerid", "clientid", "memberid", "accountid",
+                "loanid", "applicationid", "transactionid", "recordid"
+            }:
+                is_identifier = True
+
+        if not is_identifier and any(term in normalized for term in strong_substrings):
+            is_identifier = True
+
+        # name은 standalone token 또는 명확한 이름 변수에만 적용한다.
+        if not is_identifier:
+            if "name" in tokens or normalized in {
+                "name", "fullname", "firstname", "lastname", "middlename",
+                "customername", "clientname", "membername", "username",
+                "이름", "성명", "고객명", "회원명"
+            }:
+                is_identifier = True
+
+        if is_identifier:
+            protected.append(col)
+
+    return protected
+
+
 def build_minority_profile(df: pd.DataFrame, included_cols):
     """API에 원본 행 대신 전달할 Minority class 통계 프로파일."""
     profile = {}
@@ -287,8 +367,8 @@ def estimate_openai_generation_cost(
     n_rows,
     batch_size,
     excluded_cols=None,
-    include_samples=False,
-    sample_rows=5,
+    include_samples=True,
+    sample_rows=10,
 ):
     """모델 단가와 예상 input/output token을 이용한 생성 전 비용 추정."""
     excluded_cols = excluded_cols or []
@@ -521,8 +601,8 @@ def generate_openai_synthetic_rows(
     n_rows,
     batch_size=20,
     excluded_cols=None,
-    include_samples=False,
-    sample_rows=5,
+    include_samples=True,
+    sample_rows=10,
     progress_callback=None,
     checkpoint_callback=None,
     resume_df=None,
@@ -532,8 +612,9 @@ def generate_openai_synthetic_rows(
 ):
     """
     OpenAI Structured Outputs를 이용해 Minority class의 합성 feature 행을 생성.
-    기본값은 실제 고객 행을 보내지 않고 통계 프로파일만 전송한다.
-    excluded_cols는 API에 전송하지 않고 Minority 실제값에서 로컬 bootstrap한다.
+    기본값은 통계 프로파일 + 비식별 Minority 예시 10행을 전송한다.
+    excluded_cols(자동 식별정보 보호 변수 포함)는 API에 절대 전송하지 않고
+    Minority 실제값에서 로컬 bootstrap한다.
     """
     from openai import OpenAI
 
@@ -1988,35 +2069,73 @@ elif page == "3. 데이터 전처리":
                             .reset_index(drop=True)
                         )
 
-                        likely_identifier_keywords = [
-                            "id", "name", "phone", "mobile", "address", "email",
-                            "resident", "ssn", "주민", "이름", "전화", "주소", "메일", "고객번호"
-                        ]
-                        default_excluded = [
+                        # 직접 식별정보는 자동 탐지 후 API 전송에서 강제로 제외한다.
+                        # 사용자가 실수로 해제할 수 없도록 보호 목록과 추가 제외 목록을 분리한다.
+                        protected_identifier_cols = detect_identifier_columns(
+                            real_minority.columns.tolist()
+                        )
+                        optional_exclusion_cols = [
                             c for c in real_minority.columns
-                            if any(k in c.lower() for k in likely_identifier_keywords)
+                            if c not in protected_identifier_cols
                         ]
 
-                        excluded_cols = st.multiselect(
-                            "API 전송에서 제외할 변수 (제외 변수는 로컬 bootstrap으로 생성)",
-                            real_minority.columns.tolist(),
-                            default=default_excluded,
-                            key="genai_excluded_cols",
+                        st.markdown("#### API 개인정보 보호")
+                        if protected_identifier_cols:
+                            st.success(
+                                "다음 식별정보 변수는 자동 보호되어 OpenAI API에 절대 전송되지 않습니다: "
+                                + ", ".join(map(str, protected_identifier_cols))
+                            )
+                        else:
+                            st.info(
+                                "변수명 기준으로 자동 탐지된 직접 식별정보가 없습니다. "
+                                "실제 데이터의 의미상 식별정보가 있다면 아래 추가 제외 목록에서 선택하세요."
+                            )
+
+                        extra_excluded_cols = st.multiselect(
+                            "추가로 API 전송에서 제외할 변수",
+                            optional_exclusion_cols,
+                            default=[],
+                            key="genai_extra_excluded_cols",
+                            help=(
+                                "자동 보호된 ID·이름·주소·전화번호·이메일·주민등록번호·"
+                                "계좌번호 등은 이 목록과 관계없이 항상 제외됩니다. "
+                                "여기서는 그 외 민감하거나 외부 전송을 원하지 않는 변수만 추가 선택하세요."
+                            ),
                         )
 
+                        excluded_cols = list(dict.fromkeys(
+                            protected_identifier_cols + extra_excluded_cols
+                        ))
+
+                        # 기본 동작: 통계정보 + 비식별 Minority 예시 10개
                         include_samples = st.checkbox(
-                            "Minority 실제 샘플 일부도 API에 제공 (비식별 데이터일 때만 권장)",
-                            value=False,
+                            "통계정보와 함께 Minority 실제 예시 행도 API에 제공",
+                            value=True,
                             key="genai_include_samples",
+                            help=(
+                                "기본값은 켜짐입니다. 예시 행에는 자동 보호된 식별정보 변수가 "
+                                "포함되지 않습니다."
+                            ),
                         )
-                        sample_rows = 5
+                        sample_rows = min(10, len(real_minority))
                         if include_samples:
+                            max_sample_rows = max(1, min(50, len(real_minority)))
                             sample_rows = st.slider(
                                 "API에 제공할 예시 행 수",
                                 1,
-                                min(20, len(real_minority)),
-                                min(5, len(real_minority)),
+                                max_sample_rows,
+                                min(10, max_sample_rows),
                                 key="genai_sample_rows",
+                            )
+                            st.caption(
+                                f"기본 설정: Minority 통계정보 + 비식별 예시 {sample_rows}행 · "
+                                f"API 전송 변수 {real_minority.shape[1] - len(excluded_cols)}개 · "
+                                f"보호/제외 변수 {len(excluded_cols)}개"
+                            )
+                        else:
+                            sample_rows = 0
+                            st.caption(
+                                "현재 설정: Minority 통계정보만 API에 전송하며 실제 예시 행은 보내지 않습니다."
                             )
 
                         if n_to_generate > 0 and len(excluded_cols) < real_minority.shape[1]:
@@ -2172,7 +2291,7 @@ elif page == "3. 데이터 전처리":
                             elif not cost_ack:
                                 st.error("API 비용 확인란을 체크하세요.")
                             elif len(excluded_cols) == real_minority.shape[1]:
-                                st.error("모든 변수를 API 전송 제외로 선택할 수는 없습니다.")
+                                st.error("식별정보 보호 및 추가 제외 설정으로 API에 전달할 변수가 남아 있지 않습니다.")
                             else:
                                 try:
                                     if start_fresh:
