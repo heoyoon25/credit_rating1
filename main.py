@@ -2356,11 +2356,33 @@ elif page == "3. 데이터 전처리":
 
                         ctgan_epochs = st.number_input(
                             "CTGAN Epochs",
-                            min_value=50,
+                            min_value=10,
                             max_value=2000,
-                            value=300,
-                            step=50,
+                            value=50,
+                            step=10,
+                            help=(
+                                "CTGAN이 Minority 데이터를 반복 학습하는 횟수입니다. "
+                                "Streamlit Community Cloud에서는 먼저 10~50으로 정상 작동 여부를 확인한 뒤 "
+                                "필요하면 100 이상으로 높이는 것을 권장합니다."
+                            ),
                         )
+
+                        ctgan_batch_size = st.selectbox(
+                            "CTGAN Batch Size",
+                            options=[50, 100, 200, 500],
+                            index=1,
+                            help=(
+                                "한 번의 학습 단계에서 처리하는 데이터 묶음 크기입니다. "
+                                "값이 클수록 메모리 사용량이 증가합니다. "
+                                "Streamlit Community Cloud에서는 100을 기본값으로 권장합니다."
+                            ),
+                        )
+
+                        if int(ctgan_batch_size) >= 500:
+                            st.warning(
+                                "Batch Size 500은 메모리 사용량이 커질 수 있습니다. "
+                                "Streamlit Community Cloud에서는 50 또는 100을 권장합니다."
+                            )
 
                         ctgan_use_gpu = st.checkbox(
                             "GPU 사용 (로컬 GPU 환경에서만 권장)",
@@ -2387,6 +2409,11 @@ elif page == "3. 데이터 전처리":
                             "CTGAN은 Train set의 Minority class 데이터만 학습한 뒤 "
                             "부족한 수만큼 합성 Feature 행을 생성합니다. "
                             "신경망 기반 모델이므로 CPU 환경에서는 학습 시간이 오래 걸릴 수 있습니다."
+                        )
+                        st.caption(
+                            f"현재 설정: Epochs {int(ctgan_epochs):,} / Batch Size {int(ctgan_batch_size):,} / "
+                            + ("GPU" if ctgan_use_gpu else "CPU")
+                            + " · Cloud 테스트 권장값: Epochs 10~50, Batch Size 50~100, GPU OFF"
                         )
 
                         if st.button("CTGAN 적용", key="run_ctgan"):
@@ -2417,13 +2444,29 @@ elif page == "3. 데이터 전처리":
 
                                     metadata = Metadata.detect_from_dataframe(real_minority)
 
-                                    # Streamlit Community Cloud에서는 CUDA GPU를 사용할 수 없는 경우가 많습니다.
-                                    # SDV의 GPU 자동 탐색을 끄는 것을 기본값으로 두어 CUDA 초기화 오류를 방지합니다.
+                                    # CTGAN의 pac 기본 단위를 10으로 사용합니다.
+                                    # UI에서 선택하는 Batch Size는 모두 10의 배수이므로 pac 조건을 만족합니다.
+                                    # Streamlit Community Cloud에서는 메모리 사용량을 줄이기 위해 기본값을 100으로 둡니다.
                                     pac = 10
-                                    max_batch = min(500, max(20, len(real_minority)))
-                                    ctgan_batch_size = max(pac * 2, (max_batch // pac) * pac)
-                                    if ctgan_batch_size % 2 != 0:
-                                        ctgan_batch_size -= pac
+                                    selected_batch_size = int(ctgan_batch_size)
+
+                                    if selected_batch_size % pac != 0:
+                                        selected_batch_size = max(
+                                            pac * 2,
+                                            (selected_batch_size // pac) * pac,
+                                        )
+
+                                    # Minority 표본이 매우 작은 경우에는 지나치게 큰 batch를 자동으로 제한합니다.
+                                    # 최소 20, 최대 사용자가 선택한 값 범위에서 pac의 배수로 맞춥니다.
+                                    if len(real_minority) < selected_batch_size:
+                                        safe_batch = max(
+                                            pac,
+                                            (len(real_minority) // pac) * pac,
+                                        )
+                                        selected_batch_size = min(
+                                            selected_batch_size,
+                                            safe_batch,
+                                        )
 
                                     synthesizer = CTGANSynthesizer(
                                         metadata,
@@ -2431,7 +2474,7 @@ elif page == "3. 데이터 전처리":
                                         epochs=int(ctgan_epochs),
                                         verbose=False,
                                         enable_gpu=bool(ctgan_use_gpu),
-                                        batch_size=int(ctgan_batch_size),
+                                        batch_size=int(selected_batch_size),
                                         pac=pac,
                                     )
 
@@ -2443,7 +2486,7 @@ elif page == "3. 데이터 전처리":
                                         f"학습 데이터: Minority class {len(real_minority):,}행"
                                     )
                                     ctgan_status.write(
-                                        f"Epochs: {int(ctgan_epochs):,} / Batch size: {ctgan_batch_size:,}"
+                                        f"Epochs: {int(ctgan_epochs):,} / Batch size: {selected_batch_size:,}"
                                     )
                                     ctgan_status.write(
                                         "실행 장치: " + ("GPU" if ctgan_use_gpu else "CPU")
