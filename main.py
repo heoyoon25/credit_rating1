@@ -14,8 +14,8 @@ from pathlib import Path
 # 불필요하게 CUDA/GPU를 탐색하지 않도록 시작 단계에서 차단합니다.
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-os.environ.setdefault("OMP_NUM_THREADS", "2")
-os.environ.setdefault("MKL_NUM_THREADS", "2")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
 
 import numpy as np
 import pandas as pd
@@ -2414,8 +2414,19 @@ elif page == "3. 데이터 전처리":
                                 )
                             else:
                                 try:
-                                    from sdv.metadata import Metadata
-                                    from sdv.single_table import CTGANSynthesizer
+                                    # Streamlit Community Cloud에서는 SDV wrapper 대신
+                                    # 공식 ctgan 패키지를 직접 사용해 메모리 오버헤드를 줄입니다.
+                                    from ctgan import CTGAN
+
+                                    try:
+                                        import torch
+                                        torch.set_num_threads(1)
+                                        try:
+                                            torch.set_num_interop_threads(1)
+                                        except RuntimeError:
+                                            pass
+                                    except Exception:
+                                        torch = None
 
                                     majority_n = counts.max()
                                     minority_n = counts.min()
@@ -2426,39 +2437,63 @@ elif page == "3. 데이터 전처리":
                                         splits["X_train"]
                                         .loc[y_train == minority_label]
                                         .reset_index(drop=True)
+                                        .copy()
                                     )
 
-                                    metadata = Metadata.detect_from_dataframe(real_minority)
+                                    # CTGAN 직접 사용 조건 확인
+                                    if real_minority.isna().any().any():
+                                        raise ValueError(
+                                            "CTGAN 학습 데이터에 결측치가 남아 있습니다. "
+                                            "결측치 처리 후 다시 실행하세요."
+                                        )
 
-                                    # Streamlit Community Cloud용 경량 CTGAN 설정
-                                    # - CPU only: CUDA 탐색/초기화 방지
-                                    # - 작은 네트워크: 학습 중 메모리 점유량 감소
-                                    # - PAC 5: Batch Size 50/100/200과 호환
+                                    non_numeric = [
+                                        c for c in real_minority.columns
+                                        if not pd.api.types.is_numeric_dtype(real_minority[c])
+                                    ]
+                                    if non_numeric:
+                                        raise ValueError(
+                                            "CTGAN 직접 학습 단계에는 인코딩이 완료된 수치형 데이터가 필요합니다. "
+                                            f"비수치형 변수: {', '.join(map(str, non_numeric[:10]))}"
+                                        )
+
+                                    # 저카디널리티 정수형/이진 변수만 discrete로 지정합니다.
+                                    # 나머지는 continuous로 처리해 과도한 One-Hot 차원 증가를 막습니다.
+                                    ctgan_train = real_minority.copy()
+                                    discrete_columns = []
+                                    for col in ctgan_train.columns:
+                                        s = ctgan_train[col]
+                                        nunique = int(s.nunique(dropna=True))
+                                        arr = s.to_numpy(dtype=float)
+                                        integer_like = np.allclose(arr, np.round(arr), rtol=0, atol=1e-8)
+                                        if 2 <= nunique <= 10 and integer_like:
+                                            discrete_columns.append(col)
+                                            ctgan_train[col] = np.round(arr).astype(int)
+                                        else:
+                                            ctgan_train[col] = arr.astype(float)
+
                                     pac = 5
                                     selected_batch_size = int(ctgan_batch_size)
-
-                                    # CTGAN batch_size는 짝수이면서 pac의 배수여야 합니다.
                                     if selected_batch_size % 2 != 0:
                                         selected_batch_size -= 1
                                     if selected_batch_size % pac != 0:
                                         selected_batch_size = (selected_batch_size // pac) * pac
                                     selected_batch_size = max(10, selected_batch_size)
 
-                                    # 실제 Minority 표본보다 batch가 큰 경우 자동 축소합니다.
-                                    if len(real_minority) < selected_batch_size:
-                                        safe_batch = (len(real_minority) // 10) * 10
+                                    if len(ctgan_train) < selected_batch_size:
+                                        safe_batch = (len(ctgan_train) // 10) * 10
                                         selected_batch_size = max(10, safe_batch)
 
-                                    synthesizer = CTGANSynthesizer(
-                                        metadata,
-                                        enforce_rounding=False,
-                                        enforce_min_max_values=True,
+                                    # SDV wrapper보다 더 작은 CTGAN 네트워크 사용
+                                    synthesizer = CTGAN(
                                         epochs=int(ctgan_epochs),
                                         batch_size=int(selected_batch_size),
-                                        embedding_dim=32,
-                                        generator_dim=(64, 64),
-                                        discriminator_dim=(64, 64),
+                                        embedding_dim=16,
+                                        generator_dim=(32, 32),
+                                        discriminator_dim=(32, 32),
                                         pac=pac,
+                                        discriminator_steps=1,
+                                        log_frequency=False,
                                         verbose=False,
                                         enable_gpu=False,
                                     )
@@ -2468,16 +2503,19 @@ elif page == "3. 데이터 전처리":
                                         expanded=True,
                                     )
                                     ctgan_status.write(
-                                        f"학습 데이터: Minority class {len(real_minority):,}행"
+                                        f"학습 데이터: Minority class {len(ctgan_train):,}행"
+                                    )
+                                    ctgan_status.write(
+                                        f"변수 수: {ctgan_train.shape[1]:,}개 / "
+                                        f"Discrete 변수: {len(discrete_columns):,}개"
                                     )
                                     ctgan_status.write(
                                         f"Epochs: {int(ctgan_epochs):,} / Batch size: {selected_batch_size:,}"
                                     )
                                     ctgan_status.write(
-                                        "경량 모델: Embedding 32 / Generator 64×64 / "
-                                        "Discriminator 64×64 / PAC 5"
+                                        "직접 CTGAN 경량 모델: Embedding 16 / Generator 32×32 / "
+                                        "Discriminator 32×32 / PAC 5 / CPU"
                                     )
-                                    ctgan_status.write("실행 장치: CPU")
 
                                     try:
                                         ctgan_status.update(
@@ -2485,7 +2523,10 @@ elif page == "3. 데이터 전처리":
                                             state="running",
                                             expanded=True,
                                         )
-                                        synthesizer.fit(real_minority)
+                                        synthesizer.fit(
+                                            ctgan_train,
+                                            discrete_columns=discrete_columns,
+                                        )
 
                                         ctgan_status.update(
                                             label="CTGAN 합성 데이터 생성 중...",
@@ -2493,8 +2534,8 @@ elif page == "3. 데이터 전처리":
                                             expanded=True,
                                         )
 
-                                        # 필요한 합성 행을 작은 묶음으로 나누어 생성해 순간 메모리 사용량을 낮춥니다.
-                                        sample_chunk_size = 500
+                                        # 생성도 작은 단위로 나눠 순간 메모리 사용량을 제한합니다.
+                                        sample_chunk_size = 250
                                         generated_parts = []
                                         generated_n = 0
                                         while generated_n < n_to_generate:
@@ -2502,7 +2543,7 @@ elif page == "3. 데이터 전처리":
                                                 sample_chunk_size,
                                                 n_to_generate - generated_n,
                                             )
-                                            part = synthesizer.sample(num_rows=current_n)
+                                            part = synthesizer.sample(current_n)
                                             generated_parts.append(part)
                                             generated_n += len(part)
                                             ctgan_status.write(
@@ -2514,10 +2555,14 @@ elif page == "3. 데이터 전처리":
                                             ignore_index=True,
                                         ).iloc[:n_to_generate].copy()
 
-                                        # 합성 완료 후 CTGAN 모델 메모리를 즉시 해제합니다.
                                         del generated_parts
                                         del synthesizer
                                         gc.collect()
+                                        if torch is not None:
+                                            try:
+                                                torch.cuda.empty_cache()
+                                            except Exception:
+                                                pass
 
                                         ctgan_status.update(
                                             label="CTGAN 학습 및 데이터 생성 완료",
@@ -2569,7 +2614,7 @@ elif page == "3. 데이터 전처리":
                                     st.session_state.resampled = {
                                         "X_train": X_res,
                                         "y_train": y_res,
-                                        "method": f"CTGAN (ratio={target_ratio:.2f}, epochs={ctgan_epochs})",
+                                        "method": f"CTGAN-direct (ratio={target_ratio:.2f}, epochs={ctgan_epochs})",
                                         "synthetic_rows": n_to_generate,
                                         "synthetic_sample": synthetic_X.head(20),
                                         "pair_matching_requested": pair_matching_requested,
@@ -2582,8 +2627,8 @@ elif page == "3. 데이터 전처리":
                                     )
                                 except ImportError:
                                     st.error(
-                                        "SDV가 설치되어 있지 않습니다. "
-                                        "`pip install sdv` 후 다시 실행하세요."
+                                        "CTGAN 패키지가 설치되어 있지 않습니다. "
+                                        "requirements.txt에 `ctgan==0.12.1`이 있는지 확인하세요."
                                     )
                                 except Exception as e:
                                     st.error(
@@ -2593,11 +2638,10 @@ elif page == "3. 데이터 전처리":
                                     with st.expander("CTGAN 오류 해결 안내"):
                                         st.markdown(
                                             """
-                                            - 이 버전의 CTGAN은 **CPU 전용 경량 모델**로 실행됩니다.
-                                            - 먼저 **Epochs 10 / Batch Size 50**으로 끝까지 실행되는지 확인하세요.
-                                            - 정상 실행되면 Epochs를 50, 이후 필요 시 100으로 높여 비교 실험을 진행하세요.
-                                            - Python 예외 없이 앱이 재시작되거나 `healthz: EOF`가 발생하면 Streamlit Community Cloud의 메모리/CPU 한계일 가능성이 큽니다.
-                                            - 그 경우 CTGAN 학습은 로컬 또는 Colab 등 더 큰 실행 환경으로 분리하는 것이 안전합니다.
+                                            - 이 버전은 SDV wrapper를 사용하지 않고 **공식 `ctgan` 패키지를 직접 실행**합니다.
+                                            - 먼저 **Epochs 10 / Batch Size 50**으로 테스트하세요.
+                                            - Python 예외 없이 앱이 종료되거나 `healthz: EOF`가 반복되면 Community Cloud의 리소스 한계를 넘은 것입니다.
+                                            - 그 경우 CTGAN 학습은 로컬/Colab/별도 서버에서 수행하고, 생성된 합성 CSV를 이 앱으로 가져오는 방식이 가장 안정적입니다.
                                             """
                                         )
 
