@@ -1367,64 +1367,147 @@ def train_and_evaluate_selected_models(selected_models, params):
                 model_scaler = scaler
 
             elif model_name == "DNN":
+                # Streamlit Community Cloud에서는 TensorFlow를 별도로 올리지 않고
+                # CTGAN과 동일한 CPU 전용 PyTorch를 재사용합니다.
+                import copy
+                from types import SimpleNamespace
+
+                import torch
+                import torch.nn as nn
+
+                torch.set_num_threads(1)
                 try:
-                    import tensorflow as tf
-                except ImportError:
-                    st.error(
-                        "TensorFlow가 설치되어 있지 않습니다. "
-                        "`pip install tensorflow` 후 다시 실행하세요."
-                    )
-                    progress.progress(idx / total)
-                    continue
+                    torch.set_num_interop_threads(1)
+                except RuntimeError:
+                    pass
+                torch.manual_seed(RANDOM_STATE)
 
-                tf.keras.backend.clear_session()
-                tf.keras.utils.set_random_seed(RANDOM_STATE)
+                device = torch.device("cpu")
 
-                model = tf.keras.Sequential(
-                    [
-                        tf.keras.layers.Input(shape=(X_train_scaled.shape[1],)),
-                        tf.keras.layers.Dense(128, activation="relu"),
-                        tf.keras.layers.Dropout(params["dnn_dropout"]),
-                        tf.keras.layers.Dense(64, activation="relu"),
-                        tf.keras.layers.Dropout(params["dnn_dropout"]),
-                        tf.keras.layers.Dense(32, activation="relu"),
-                        tf.keras.layers.Dense(1, activation="sigmoid"),
-                    ]
+                Xtr = torch.tensor(
+                    np.asarray(X_train_scaled, dtype=np.float32),
+                    dtype=torch.float32,
+                    device=device,
+                )
+                ytr = torch.tensor(
+                    y_train.to_numpy(dtype=np.float32).reshape(-1, 1),
+                    dtype=torch.float32,
+                    device=device,
+                )
+                Xv = torch.tensor(
+                    np.asarray(X_val_scaled, dtype=np.float32),
+                    dtype=torch.float32,
+                    device=device,
+                )
+                yv = torch.tensor(
+                    y_val.to_numpy(dtype=np.float32).reshape(-1, 1),
+                    dtype=torch.float32,
+                    device=device,
                 )
 
-                model.compile(
-                    optimizer=tf.keras.optimizers.Adam(
-                        learning_rate=params["dnn_lr"]
-                    ),
-                    loss="binary_crossentropy",
-                    metrics=["accuracy"],
+                model = nn.Sequential(
+                    nn.Linear(Xtr.shape[1], 128),
+                    nn.ReLU(),
+                    nn.Dropout(float(params["dnn_dropout"])),
+                    nn.Linear(128, 64),
+                    nn.ReLU(),
+                    nn.Dropout(float(params["dnn_dropout"])),
+                    nn.Linear(64, 32),
+                    nn.ReLU(),
+                    nn.Linear(32, 1),
+                ).to(device)
+
+                criterion = nn.BCEWithLogitsLoss()
+                optimizer = torch.optim.Adam(
+                    model.parameters(),
+                    lr=float(params["dnn_lr"]),
                 )
 
-                callbacks = [
-                    tf.keras.callbacks.EarlyStopping(
-                        monitor="val_loss",
-                        patience=12,
-                        restore_best_weights=True,
-                    )
-                ]
+                max_epochs = int(params["dnn_epochs"])
+                batch_size = int(params["dnn_batch_size"])
+                patience = 12
+                best_val_loss = float("inf")
+                best_state = None
+                stale_epochs = 0
+                history_dict = {
+                    "loss": [],
+                    "val_loss": [],
+                    "accuracy": [],
+                    "val_accuracy": [],
+                }
 
-                history = model.fit(
-                    X_train_scaled,
-                    y_train.to_numpy(),
-                    validation_data=(X_val_scaled, y_val.to_numpy()),
-                    epochs=params["dnn_epochs"],
-                    batch_size=params["dnn_batch_size"],
-                    verbose=0,
-                    callbacks=callbacks,
-                )
+                n_train = Xtr.shape[0]
+                for _epoch in range(max_epochs):
+                    model.train()
+                    permutation = torch.randperm(n_train, device=device)
+                    epoch_loss_sum = 0.0
+                    epoch_correct = 0
 
-                val_prob = model.predict(X_val_scaled, verbose=0).ravel()
-                test_prob = model.predict(X_test_scaled, verbose=0).ravel()
+                    for batch_start in range(0, n_train, batch_size):
+                        idx_batch = permutation[batch_start: batch_start + batch_size]
+                        xb = Xtr[idx_batch]
+                        yb = ytr[idx_batch]
+
+                        optimizer.zero_grad(set_to_none=True)
+                        logits = model(xb)
+                        loss = criterion(logits, yb)
+                        loss.backward()
+                        optimizer.step()
+
+                        epoch_loss_sum += float(loss.item()) * len(idx_batch)
+                        pred = (torch.sigmoid(logits) >= 0.5).float()
+                        epoch_correct += int((pred == yb).sum().item())
+
+                    train_loss = epoch_loss_sum / max(1, n_train)
+                    train_acc = epoch_correct / max(1, n_train)
+
+                    model.eval()
+                    with torch.no_grad():
+                        val_logits = model(Xv)
+                        val_loss = float(criterion(val_logits, yv).item())
+                        val_pred_t = (torch.sigmoid(val_logits) >= 0.5).float()
+                        val_acc = float((val_pred_t == yv).float().mean().item())
+
+                    history_dict["loss"].append(train_loss)
+                    history_dict["val_loss"].append(val_loss)
+                    history_dict["accuracy"].append(train_acc)
+                    history_dict["val_accuracy"].append(val_acc)
+
+                    if val_loss < best_val_loss - 1e-6:
+                        best_val_loss = val_loss
+                        best_state = copy.deepcopy(model.state_dict())
+                        stale_epochs = 0
+                    else:
+                        stale_epochs += 1
+                        if stale_epochs >= patience:
+                            break
+
+                if best_state is not None:
+                    model.load_state_dict(best_state)
+
+                model.eval()
+                with torch.no_grad():
+                    val_prob = torch.sigmoid(
+                        model(torch.tensor(
+                            np.asarray(X_val_scaled, dtype=np.float32),
+                            dtype=torch.float32,
+                            device=device,
+                        ))
+                    ).cpu().numpy().ravel()
+                    test_prob = torch.sigmoid(
+                        model(torch.tensor(
+                            np.asarray(X_test_scaled, dtype=np.float32),
+                            dtype=torch.float32,
+                            device=device,
+                        ))
+                    ).cpu().numpy().ravel()
+
                 val_pred = (val_prob >= 0.5).astype(int)
                 test_pred = (test_prob >= 0.5).astype(int)
 
                 model_obj = model
                 model_scaler = scaler
+                history = SimpleNamespace(history=history_dict)
 
             else:
                 continue
