@@ -1,3 +1,5 @@
+import os
+import gc
 import io
 import hashlib
 import json
@@ -6,6 +8,14 @@ import time
 import warnings
 import zipfile
 from pathlib import Path
+
+# Streamlit Community Cloud 안정화 설정
+# 이 앱은 Cloud에서 CPU 전용으로 실행하며, 무거운 연산 라이브러리가
+# 불필요하게 CUDA/GPU를 탐색하지 않도록 시작 단계에서 차단합니다.
+os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ.setdefault("OMP_NUM_THREADS", "2")
+os.environ.setdefault("MKL_NUM_THREADS", "2")
 
 import numpy as np
 import pandas as pd
@@ -2369,51 +2379,27 @@ elif page == "3. 데이터 전처리":
 
                         ctgan_batch_size = st.selectbox(
                             "CTGAN Batch Size",
-                            options=[50, 100, 200, 500],
-                            index=1,
+                            options=[50, 100, 200],
+                            index=0,
                             help=(
                                 "한 번의 학습 단계에서 처리하는 데이터 묶음 크기입니다. "
-                                "값이 클수록 메모리 사용량이 증가합니다. "
-                                "Streamlit Community Cloud에서는 100을 기본값으로 권장합니다."
+                                "Streamlit Community Cloud의 메모리 부담을 줄이기 위해 기본값을 50으로 설정했습니다."
                             ),
                         )
 
-                        if int(ctgan_batch_size) >= 500:
-                            st.warning(
-                                "Batch Size 500은 메모리 사용량이 커질 수 있습니다. "
-                                "Streamlit Community Cloud에서는 50 또는 100을 권장합니다."
-                            )
-
-                        ctgan_use_gpu = st.checkbox(
-                            "GPU 사용 (로컬 GPU 환경에서만 권장)",
-                            value=False,
-                            help=(
-                                "Streamlit Community Cloud는 일반적으로 CUDA GPU를 제공하지 않으므로 "
-                                "기본값인 CPU 모드를 권장합니다. GPU가 없는 환경에서 이 옵션을 켜면 "
-                                "CUDA 초기화 경고가 발생할 수 있습니다."
-                            ),
+                        st.info(
+                            "CTGAN은 Streamlit Community Cloud 안정성을 위해 CPU 전용 경량 모델로 실행됩니다. "
+                            "GPU 사용은 비활성화되어 있습니다."
                         )
 
-                        if ctgan_use_gpu:
-                            st.warning(
-                                "GPU 모드가 선택되었습니다. CUDA/MPS가 실제로 사용 가능한 환경에서만 "
-                                "사용하세요. Streamlit Community Cloud에서는 CPU 모드를 권장합니다."
-                            )
-                        else:
-                            st.info(
-                                "CTGAN은 CPU 모드로 실행됩니다. Streamlit Community Cloud에서 발생하는 "
-                                "CUDA 초기화 오류를 방지하기 위한 기본 설정입니다."
-                            )
-
                         st.caption(
-                            "CTGAN은 Train set의 Minority class 데이터만 학습한 뒤 "
-                            "부족한 수만큼 합성 Feature 행을 생성합니다. "
-                            "신경망 기반 모델이므로 CPU 환경에서는 학습 시간이 오래 걸릴 수 있습니다."
+                            "경량 CTGAN 설정: Embedding 32 / Generator 64×64 / "
+                            "Discriminator 64×64 / PAC 5 / CPU only"
                         )
                         st.caption(
-                            f"현재 설정: Epochs {int(ctgan_epochs):,} / Batch Size {int(ctgan_batch_size):,} / "
-                            + ("GPU" if ctgan_use_gpu else "CPU")
-                            + " · Cloud 테스트 권장값: Epochs 10~50, Batch Size 50~100, GPU OFF"
+                            f"현재 설정: Epochs {int(ctgan_epochs):,} / "
+                            f"Batch Size {int(ctgan_batch_size):,} / CPU · "
+                            "Cloud 테스트 권장값: Epochs 10~50, Batch Size 50"
                         )
 
                         if st.button("CTGAN 적용", key="run_ctgan"):
@@ -2444,38 +2430,37 @@ elif page == "3. 데이터 전처리":
 
                                     metadata = Metadata.detect_from_dataframe(real_minority)
 
-                                    # CTGAN의 pac 기본 단위를 10으로 사용합니다.
-                                    # UI에서 선택하는 Batch Size는 모두 10의 배수이므로 pac 조건을 만족합니다.
-                                    # Streamlit Community Cloud에서는 메모리 사용량을 줄이기 위해 기본값을 100으로 둡니다.
-                                    pac = 10
+                                    # Streamlit Community Cloud용 경량 CTGAN 설정
+                                    # - CPU only: CUDA 탐색/초기화 방지
+                                    # - 작은 네트워크: 학습 중 메모리 점유량 감소
+                                    # - PAC 5: Batch Size 50/100/200과 호환
+                                    pac = 5
                                     selected_batch_size = int(ctgan_batch_size)
 
+                                    # CTGAN batch_size는 짝수이면서 pac의 배수여야 합니다.
+                                    if selected_batch_size % 2 != 0:
+                                        selected_batch_size -= 1
                                     if selected_batch_size % pac != 0:
-                                        selected_batch_size = max(
-                                            pac * 2,
-                                            (selected_batch_size // pac) * pac,
-                                        )
+                                        selected_batch_size = (selected_batch_size // pac) * pac
+                                    selected_batch_size = max(10, selected_batch_size)
 
-                                    # Minority 표본이 매우 작은 경우에는 지나치게 큰 batch를 자동으로 제한합니다.
-                                    # 최소 20, 최대 사용자가 선택한 값 범위에서 pac의 배수로 맞춥니다.
+                                    # 실제 Minority 표본보다 batch가 큰 경우 자동 축소합니다.
                                     if len(real_minority) < selected_batch_size:
-                                        safe_batch = max(
-                                            pac,
-                                            (len(real_minority) // pac) * pac,
-                                        )
-                                        selected_batch_size = min(
-                                            selected_batch_size,
-                                            safe_batch,
-                                        )
+                                        safe_batch = (len(real_minority) // 10) * 10
+                                        selected_batch_size = max(10, safe_batch)
 
                                     synthesizer = CTGANSynthesizer(
                                         metadata,
                                         enforce_rounding=False,
+                                        enforce_min_max_values=True,
                                         epochs=int(ctgan_epochs),
-                                        verbose=False,
-                                        enable_gpu=bool(ctgan_use_gpu),
                                         batch_size=int(selected_batch_size),
+                                        embedding_dim=32,
+                                        generator_dim=(64, 64),
+                                        discriminator_dim=(64, 64),
                                         pac=pac,
+                                        verbose=False,
+                                        enable_gpu=False,
                                     )
 
                                     ctgan_status = st.status(
@@ -2489,8 +2474,10 @@ elif page == "3. 데이터 전처리":
                                         f"Epochs: {int(ctgan_epochs):,} / Batch size: {selected_batch_size:,}"
                                     )
                                     ctgan_status.write(
-                                        "실행 장치: " + ("GPU" if ctgan_use_gpu else "CPU")
+                                        "경량 모델: Embedding 32 / Generator 64×64 / "
+                                        "Discriminator 64×64 / PAC 5"
                                     )
+                                    ctgan_status.write("실행 장치: CPU")
 
                                     try:
                                         ctgan_status.update(
@@ -2505,15 +2492,44 @@ elif page == "3. 데이터 전처리":
                                             state="running",
                                             expanded=True,
                                         )
-                                        synthetic_X = synthesizer.sample(
-                                            num_rows=n_to_generate
-                                        )
+
+                                        # 필요한 합성 행을 작은 묶음으로 나누어 생성해 순간 메모리 사용량을 낮춥니다.
+                                        sample_chunk_size = 500
+                                        generated_parts = []
+                                        generated_n = 0
+                                        while generated_n < n_to_generate:
+                                            current_n = min(
+                                                sample_chunk_size,
+                                                n_to_generate - generated_n,
+                                            )
+                                            part = synthesizer.sample(num_rows=current_n)
+                                            generated_parts.append(part)
+                                            generated_n += len(part)
+                                            ctgan_status.write(
+                                                f"합성 데이터 생성: {generated_n:,} / {n_to_generate:,}행"
+                                            )
+
+                                        synthetic_X = pd.concat(
+                                            generated_parts,
+                                            ignore_index=True,
+                                        ).iloc[:n_to_generate].copy()
+
+                                        # 합성 완료 후 CTGAN 모델 메모리를 즉시 해제합니다.
+                                        del generated_parts
+                                        del synthesizer
+                                        gc.collect()
+
                                         ctgan_status.update(
                                             label="CTGAN 학습 및 데이터 생성 완료",
                                             state="complete",
                                             expanded=False,
                                         )
                                     except Exception:
+                                        try:
+                                            del synthesizer
+                                        except Exception:
+                                            pass
+                                        gc.collect()
                                         ctgan_status.update(
                                             label="CTGAN 실행 중 오류 발생",
                                             state="error",
@@ -2572,16 +2588,16 @@ elif page == "3. 데이터 전처리":
                                 except Exception as e:
                                     st.error(
                                         "CTGAN 적용 중 오류가 발생했습니다. "
-                                        "Streamlit Community Cloud에서는 GPU 옵션을 끈 CPU 모드를 사용하세요. "
                                         f"오류 내용: {type(e).__name__}: {e}"
                                     )
                                     with st.expander("CTGAN 오류 해결 안내"):
                                         st.markdown(
                                             """
-                                            - **GPU 사용 옵션을 해제**한 상태로 다시 실행하세요.
-                                            - 처음 테스트할 때는 **Epochs를 50~100**으로 낮춰 정상 동작을 먼저 확인하세요.
-                                            - CTGAN은 신경망 기반이므로 Streamlit Cloud의 CPU 환경에서는 시간이 오래 걸릴 수 있습니다.
-                                            - 오류가 계속되면 화면에 표시된 `오류 내용`을 그대로 확인해 주세요.
+                                            - 이 버전의 CTGAN은 **CPU 전용 경량 모델**로 실행됩니다.
+                                            - 먼저 **Epochs 10 / Batch Size 50**으로 끝까지 실행되는지 확인하세요.
+                                            - 정상 실행되면 Epochs를 50, 이후 필요 시 100으로 높여 비교 실험을 진행하세요.
+                                            - Python 예외 없이 앱이 재시작되거나 `healthz: EOF`가 발생하면 Streamlit Community Cloud의 메모리/CPU 한계일 가능성이 큽니다.
+                                            - 그 경우 CTGAN 학습은 로컬 또는 Colab 등 더 큰 실행 환경으로 분리하는 것이 안전합니다.
                                             """
                                         )
 
